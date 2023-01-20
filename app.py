@@ -39,17 +39,19 @@ if __name__ == '__main__':
 
     # Define interactions
     @app.callback(
-        Output(scatterplot1.html_id, "figure"), [
-        Input("select-color-scatter-1", "value"),
-        Input(scatterplot2.html_id, 'selectedData')
+        Output(component_id = scatterplot1.html_id, component_property = "figure"), [
+        Input(component_id = "select-color-scatter-1", component_property = "value"),
+        Input(component_id = scatterplot2.html_id, component_property = 'selectedData')
     ])
+    # The number of parameters needs to be the same as the number of inputs and states
+    # This function needs to be defined right underneath the callback decorator
     def update_scatter_1(selected_color, selected_data):
         return scatterplot1.update(selected_color, selected_data)
 
     @app.callback(
-        Output(scatterplot2.html_id, "figure"), [
-        Input("select-color-scatter-2", "value"),
-        Input(scatterplot1.html_id, 'selectedData')
+        Output(component_id =scatterplot2.html_id, component_property = "figure"), [
+        Input(component_id ="select-color-scatter-2", component_property = "value"),
+        Input(component_id =scatterplot1.html_id, component_property = 'selectedData')
     ])
     def update_scatter_2(selected_color, selected_data):
         return scatterplot2.update(selected_color, selected_data)
