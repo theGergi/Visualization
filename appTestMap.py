@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from dash.exceptions import PreventUpdate
+from jbi100_app.views.parcoords import Parcoords
 import numpy as np
 
 def clean(x):
@@ -41,6 +42,8 @@ df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
 
+plot1 = Parcoords("Comparison", df_clean)
+
 # Make the layout 
 app.layout = html.Div(children=[
     html.Div(
@@ -76,14 +79,23 @@ app.layout = html.Div(children=[
             ]),
 
             html.Div(className='eight columns div-for-charts-bg-grey', children=[
-                dcc.Graph(
-                    id='hexbin-mapbox',
+                html.Div(
+                    className="row",
+                    children = [
+                    dcc.Graph(
+                        id='hexbin-mapbox',
+                    )]
                 ),
+                html.Div(
+                    className="row",
+                    children=[
+                    plot1
+                ])
             ])
+            
         ], 
     )
 ])
-
 @app.callback(
     [Output('hexbin-mapbox', 'figure'),
     Output('radio-menu-neighbourhood', 'style'),
@@ -115,6 +127,14 @@ def update_graph(value, value_neighbour, value_room):
         )
     fig.update_layout(margin=dict(b=0, t=0, l=0, r=0))
     return fig, disabled_neighbour, disabled_room
+
+# Define interactions Parallel coordinates graph
+@app.callback(
+    Output(plot1.html_id, "figure"), [
+    Input('dropdown-menu', 'value')
+])
+def update_comparison(value):
+    return plot1.update([("price","Price"),("review rate number","Review rate number")])
 
 def make_hexbin(df, setOriginalData):
     return ff.create_hexbin_mapbox(
