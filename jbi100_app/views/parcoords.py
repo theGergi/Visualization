@@ -21,7 +21,7 @@ class Parcoords(html.Div):
         dimensions= []
         for key, name in value_pairs:
             values = self.df_display[key]
-            up_bound = max(values)
+            up_bound = max(values) 
             low_bound = min(values)
             dimensions.append(dict(range = [low_bound,up_bound],
                         label = name,

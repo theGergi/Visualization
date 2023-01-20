@@ -101,19 +101,19 @@ app.layout = html.Div(children=[
             ]),
 
 
-            html.Div(className='eight columns div-for-charts-bg-grey', children=[
-                html.Div(
-                    className="row",
-                    children = [
-                    dcc.Graph(
-                        id='hexbin-mapbox',
-                    )]
-                ),
-                html.Div(
-                    className="row",
-                    children=[
-                    plot1
-                ])
+            # html.Div(className='eight columns div-for-charts-bg-grey', children=[
+            #     html.Div(
+            #         className="row",
+            #         children = [
+            #         dcc.Graph(
+            #             id='hexbin-mapbox',
+            #         )]
+            #     ),
+            #     html.Div(
+            #         className="row",
+            #         children=[
+            #         plot1
+            #     ])
 
             html.Div(className='six columns div-for-charts-bg-grey', children=[
                 dcc.Graph(
