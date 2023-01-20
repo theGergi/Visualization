@@ -115,18 +115,31 @@ app.layout = html.Div(children=[
             #         plot1
             #     ])
 
-            html.Div(className='six columns div-for-charts-bg-grey', children=[
-                dcc.Graph(
-                    id='hexbin-mapbox',
-                    style={'display': 'inline-block'}
-                ),html.Div(
+            html.Div(className='eight columns div-for-charts-bg-grey', children=[
+                html.Div(
+                    className="row",
+                    children = [
+                    html.Div(
+                        className="eight columns",
+                        children=[
+                        dcc.Graph(
+                            id='hexbin-mapbox',
+                            className='twelve columns',
+                            style={'display': 'inline-block'}
+                            )
+                        ]),                  
+                        
+                    html.Div(className='four columns div-for-charts-bg-grey', children=[
+
+                        ], id='grouped-bar-chart', style={'display': 'inline-block'}),
+                    ]
+                ),
+                
+                html.Div(
                     className="row",
                     children=[
                     plot1
                 ]),
-                html.Div(className='five columns div-for-charts-bg-grey', children=[
-
-                ], id='grouped-bar-chart', style={'display': 'inline-block'}),
                 
             ])
             
