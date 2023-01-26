@@ -8,6 +8,8 @@ codealike.json
 # User-specific stuff
 .idea/
 
+# datasets
+*.csv
 
 # CMake
 cmake-build-*/
