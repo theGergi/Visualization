@@ -1,9 +1,10 @@
-from dash import Dash, dcc, html, Input, Output, State
+from dash import Dash, dcc, html, Input, Output, State, dash_table
 import plotly.express as px
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from dash.exceptions import PreventUpdate
+from radar_chart import PLgetRadarChart, normalizeColumns
 from jbi100_app.views.parcoords import Parcoords
 import numpy as np
 import re
@@ -22,6 +23,9 @@ df = pd.read_csv('airbnb_open_data.csv', usecols=['NAME','host id', 'host_identi
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
+# df_big = pd.read_csv()
+# 'neighbourhood_group_cleansed','latitude','long',
+# 'room type','price','service fee','review rate number','availability 365'
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -59,6 +63,14 @@ df_clean['bin'] = df_clean['bin'].astype(str)
 df_clean['bin_price'] = pd.cut(x=df_clean['price'], bins=5, precision=0)
 df_clean['bin_price'] = df_clean['bin_price'].astype(str)
 
+# reducing dataset size for faster user experience
+# 
+df_small = df_clean[:100]
+radar_cols = ['price','service fee','minimum nights','number of reviews']
+df_normalized = normalizeColumns(df_small[radar_cols])
+df_normalized['NAME'] = df_small['NAME']
+print(df_normalized[:2])
+radar_fig = PLgetRadarChart(df_normalized[:2], names='NAME')
 
 # Make the layout 
 app.layout = html.Div(children=[
@@ -98,22 +110,20 @@ app.layout = html.Div(children=[
                     value='$50 - $280',
                     disabled=True,
                 ),
-            ]),
+                dash_table.DataTable(
+                    df_small.to_dict('records'),
+                    [{"name": i, "id": i} for i in df_small.columns],
+                    row_selectable='multi',
+                    id='preview_table',
+                    style_table={'height': '300px', 'overflowY': 'auto'} ,
+                    page_size=10
+                    ),
 
+                dcc.Graph(figure=radar_fig, id = 'radar_fig')
+                ],
+                    
+            ),
 
-            # html.Div(className='eight columns div-for-charts-bg-grey', children=[
-            #     html.Div(
-            #         className="row",
-            #         children = [
-            #         dcc.Graph(
-            #             id='hexbin-mapbox',
-            #         )]
-            #     ),
-            #     html.Div(
-            #         className="row",
-            #         children=[
-            #         plot1
-            #     ])
 
             html.Div(className='eight columns div-for-charts-bg-grey', children=[
                 html.Div(
@@ -146,6 +156,19 @@ app.layout = html.Div(children=[
         ], 
     )
 ])
+
+@app.callback(
+    Output('radar_fig', "figure"),
+    Input('preview_table', 'selected_rows')
+)
+def select_listings(selected_rows):
+    print(selected_rows)
+    display_df = df_normalized.iloc[selected_rows]
+    fig = PLgetRadarChart(display_df, names='NAME')
+    return fig
+
+
+
 @app.callback(
     [Output('hexbin-mapbox', 'figure'),
     Output('radio-menu-neighbourhood', 'style'),
