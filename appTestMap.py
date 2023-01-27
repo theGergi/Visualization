@@ -63,7 +63,7 @@ df_clean['bin'] = df_clean['bin'].astype(str)
 df_clean['bin_price'] = pd.cut(x=df_clean['price'], bins=5, precision=0)
 df_clean['bin_price'] = df_clean['bin_price'].astype(str)
 
-print(pd.cut(x=df_clean['price'], bins=5, precision=0).unique)
+# print(pd.cut(x=df_clean['price'], bins=5, precision=0).unique)
 
 # reducing dataset size for faster user experience
 # 
@@ -71,7 +71,6 @@ df_small = df_clean[:100]
 radar_cols = ['price','service fee','minimum nights','number of reviews']
 df_normalized = normalizeColumns(df_small[radar_cols])
 df_normalized['NAME'] = df_small['NAME']
-print(df_normalized[:2])
 radar_fig = PLgetRadarChart(df_normalized[:2], names='NAME')
 
 # Make the layout 
@@ -111,14 +110,16 @@ app.layout = html.Div(children=[
                     id='dropdown-price',
                     value='$50 - $280',
                     disabled=True,
+                    style= {'display': 'none'},
                 ),
+                html.Br(),
                 dash_table.DataTable(
                     df_small.to_dict('records'),
                     [{"name": i, "id": i} for i in df_small.columns],
                     row_selectable='multi',
                     id='preview_table',
                     style_table={'height': '300px', 'overflowY': 'auto'} ,
-                    page_size=10
+                    page_size=10,
                     ),
 
                 dcc.Graph(figure=radar_fig, id = 'radar_fig')
@@ -164,7 +165,6 @@ app.layout = html.Div(children=[
     Input('preview_table', 'selected_rows')
 )
 def select_listings(selected_rows):
-    print(selected_rows)
     display_df = df_normalized.iloc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
     return fig
@@ -232,10 +232,10 @@ def make_hexbin(df, setOriginalData):
     [State('grouped-bar-chart', 'children')]
 )
 def update_grouped(value, priceRange, children):
-    disabled_bar = {'disabled':'none'}
+    disabled_bar = {'display':'None'}
     disable_drop = True
     if (value == 'price'):
-        disabled_bar = {'disabled':'block'}
+        disabled_bar = {'display':'block'}
         disable_drop = False
         filtered_df = reviewPriceRange(df_clean[df_clean["bin_price"]==priceParser(priceRange)])
         if children:
@@ -250,6 +250,8 @@ def update_grouped(value, priceRange, children):
                     dcc.Graph(
                         figure=fig_second)
             )
+    print("disabled: ")
+    print(disabled_bar)
     return children, disabled_bar, disable_drop
 
 def reviewPriceRange(df_clean):
