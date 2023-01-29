@@ -16,13 +16,15 @@ class Parcoords(html.Div):
             ],
         )
 
-    def update(self, value_pairs):
-
+    def update(self, value_pairs, df):
+        self.df_display = df
+        bounds = []
         dimensions= []
         for key, name in value_pairs:
             values = self.df_display[key]
             up_bound = max(values) 
             low_bound = min(values)
+            bounds.append((low_bound, up_bound))
             dimensions.append(dict(range = [low_bound,up_bound],
                         label = name,
                         values = values))
@@ -30,13 +32,13 @@ class Parcoords(html.Div):
 
         self.fig = go.Figure(data=
             go.Parcoords(
-                line = dict(color = self.df_display['host id'],
-                        colorscale = 'Electric',
+                line = dict(color = self.df_display[value_pairs[0][0]],
+                        colorscale = 'viridis',
                         showscale = True,
-                        cmin = -4000,
-                        cmax = -100),
-                dimensions = dimensions
-            )
+                        cmin = bounds[0][0],
+                        cmax = bounds[0][1]),
+                dimensions = dimensions)
+            # ,layout = dict(plot_bgcolor='rgba(50,0,0,0)')
         )
 
         return self.fig

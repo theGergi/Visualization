@@ -9,6 +9,9 @@ from jbi100_app.views.parcoords import Parcoords
 import numpy as np
 import re
 
+
+VALUE_PAIRS_PCP = [("price","Price"),("review rate number","Review rate number"),("Construction year","Construction year"),("service fee","Service fee"),("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
+
 def clean(x):
     x = x.replace("$", "").replace(" ", "")
     if "," in x:
@@ -207,11 +210,19 @@ def update_graph(value, value_neighbour, value_room):
 
 # Define interactions Parallel coordinates graph
 @app.callback(
-    Output(plot1.html_id, "figure"), [
-    Input('dropdown-menu', 'value')
-])
-def update_comparison(value):
-    return plot1.update([("price","Price"),("review rate number","Review rate number")])
+    Output(plot1.html_id, 'figure'),
+    [Input('dropdown-menu', 'value'),
+    Input('dropdown-price', 'value')]
+)
+def update_comparison(value, priceRange):
+    filtered_df = df_clean[df_clean["bin_price"]==priceParser(priceRange)]
+
+    return plot1.update(VALUE_PAIRS_PCP, filtered_df)
+#     Output(plot1.html_id, "figure"), [
+#     Input('dropdown-menu', 'value')
+# ])
+# def update_comparison(value):
+#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
 
 
 def make_hexbin(df, setOriginalData):
