@@ -10,7 +10,9 @@ import numpy as np
 import re
 
 
-VALUE_PAIRS_PCP = [("price","Price"),("review rate number","Review rate number"),("Construction year","Construction year"),("service fee","Service fee"),("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
+VALUE_PAIRS_PCP = [("price","Price"),("service fee","Service fee"),("review rate number","Review rate number"),("Construction year","Construction year"),
+("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
+#('host_response_time','Reponse Time'),('host_response_rate','Response rate'),('host_acceptance_rate','Acceptance rate'),('host_is_superhost','Superhost')]
 
 def clean(x):
     x = x.replace("$", "").replace(" ", "")
@@ -22,10 +24,15 @@ def cleanServiceFee(x):
     x = x.replace("$", "").replace(" ", "")
     return int(x)
 
+def cleanAvailability365(x):
+    x = min(x, 365)
+    return x
+
 df = pd.read_csv('airbnb_open_data.csv', usecols=['NAME','host id', 'host_identity_verified','host name',
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
+#'host_response_time','host_response_rate','host_acceptance_rate','host_is_superhost']) # Added for parallel coordinates
 # df_big = pd.read_csv()
 # 'neighbourhood_group_cleansed','latitude','long',
 # 'room type','price','service fee','review rate number','availability 365'
@@ -56,9 +63,9 @@ df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
 df_clean['service fee'] = df_clean['service fee'].apply(cleanServiceFee)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
+df_clean['availability 365'] = df_clean['availability 365'].apply(cleanAvailability365)
 
-
-plot1 = Parcoords("Comparison", df_clean)
+plot1 = Parcoords(df_clean)
 
 # Separate these values into different bins
 df_clean['bin'] = pd.cut(x=df_clean['service fee'], bins=[0, 10, 60, 120, 180, 240])
@@ -78,10 +85,14 @@ radar_fig = PLgetRadarChart(df_normalized[:2], names='NAME')
 
 # Make the layout 
 app.layout = html.Div(children=[
-    html.Div(
-        className='row', children=[
+    html.Div(className='row', children=[
+        html.Div(className='banner', children =[
+            html.H2('Dash - Airbnb Listings'),
+            html.Hr()
+        ]),
+        html.Div(className='row', children = [
             html.Div(className='four columns div-user-controls', children=[
-                html.H2('Dash - Airbnb Listings'),
+                
                 html.P('''Filtering Options'''),
                 html.Hr(),
                 dcc.Dropdown(
@@ -158,9 +169,8 @@ app.layout = html.Div(children=[
                 ]),
                 
             ])
-            
-        ], 
-    )
+        ])
+    ])
 ])
 
 @app.callback(
@@ -214,15 +224,11 @@ def update_graph(value, value_neighbour, value_room):
     [Input('dropdown-menu', 'value'),
     Input('dropdown-price', 'value')]
 )
-def update_comparison(value, priceRange):
+def update_parcoords(value, priceRange):
     filtered_df = df_clean[df_clean["bin_price"]==priceParser(priceRange)]
 
     return plot1.update(VALUE_PAIRS_PCP, filtered_df)
-#     Output(plot1.html_id, "figure"), [
-#     Input('dropdown-menu', 'value')
-# ])
-# def update_comparison(value):
-#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
+
 
 
 def make_hexbin(df, setOriginalData):
