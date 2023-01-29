@@ -105,32 +105,12 @@ app.layout = html.Div(children=[
                     value="Location",
                 ),
                 html.Br(),
-                dcc.RadioItems(
-                    id='radio-menu-neighbourhood',
-                    options=df_clean['neighbourhood group'].unique(),
-                    style= {'display': 'none'},
-                    value='Brooklyn',
-                ),
-                dcc.RadioItems(
-                    id='radio-menu-room',
-                    options=df_clean['room type'].unique(),
-                    style= {'display': 'none'},
-                    value='Private room',
-                ),
-                dcc.Dropdown(
-                    options=['$50 - $280', '$281 - $509', '$510 - $739', '$740 - $969', '$970 - $1200'],
-                    id='dropdown-price',
-                    value='$50 - $280',
-                    disabled=True,
-                    style= {'display': 'none'},
-                ),
-                html.Br(),
                 dash_table.DataTable(
                     df_small.to_dict('records'),
                     [{"name": i, "id": i} for i in df_small.columns],
                     row_selectable='multi',
                     id='preview_table',
-                    style_table={'height': '300px', 'overflowY': 'auto'} ,
+                    style_table={'height': '300px', 'overflowY': 'auto'},
                     page_size=10,
                     ),
 
@@ -179,34 +159,18 @@ app.layout = html.Div(children=[
     Input('preview_table', 'selected_rows')
 )
 def select_listings(selected_rows):
-    # print(selected_rows)
     if not selected_rows:
         return PLgetRadarChart(pd.DataFrame(), names='NAME')
     display_df = df_normalized.iloc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
     return fig
 
-
 @app.callback(
-    [Output('hexbin-mapbox', 'figure'),
-    Output('radio-menu-neighbourhood', 'style'),
-    Output('radio-menu-room', 'style')],
-    [Input('dropdown-menu', 'value'),
-    Input('radio-menu-neighbourhood', 'value'),
-    Input('radio-menu-room', 'value')]
+    Output('hexbin-mapbox', 'figure'),
+    [Input('dropdown-menu', 'value')]
 )
-def update_graph(value, value_neighbour, value_room):
-    disabled_neighbour = {'display': 'none'}
-    disabled_room = {'display': 'none'}
-    if (value == 'neighbourhood group'):
-        disabled_neighbour = {'display': 'block'}
-        fig = make_hexbin(df_clean.loc[df_clean[value] == value_neighbour], False)
-    elif (value == 'room type'):
-        disabled_room = {'display': 'block'}
-        fig = make_hexbin(df_clean.loc[df_clean[value] == value_room], False)
-    elif (value == 'Location'):
-        fig = make_hexbin(df_clean, True)
-    else:
+def update_hexbin(value):
+    if (value == 'Average Price'):
         label = "Average " + value.capitalize()
         fig = ff.create_hexbin_mapbox(
             data_frame=df_clean, lat="lat", lon="long",
@@ -216,23 +180,11 @@ def update_graph(value, value_neighbour, value_room):
             original_data_marker=dict(size=4, opacity=0.2, color="deeppink"),
             zoom=8,
         )
+    else:
+        fig = make_hexbin(df_clean, True)
 
     fig.update_layout(margin=dict(b=0, t=0, l=0, r=0))
-    return fig, disabled_neighbour, disabled_room
-
-
-# Define interactions Parallel coordinates graph
-@app.callback(
-    Output(plot1.html_id, 'figure'),
-    [Input('dropdown-menu', 'value'),
-    Input('dropdown-price', 'value')]
-)
-def update_parcoords(value, priceRange):
-    filtered_df = df_clean[df_clean["bin_price"]==priceParser(priceRange)]
-
-    return plot1.update(VALUE_PAIRS_PCP, filtered_df)
-
-
+    return fig
 
 def make_hexbin(df, setOriginalData):
     return ff.create_hexbin_mapbox(
@@ -240,45 +192,29 @@ def make_hexbin(df, setOriginalData):
             opacity=1.0, labels={"color": "Listings Count"},
             min_count=1, show_original_data=setOriginalData, 
             original_data_marker=dict(size=4, opacity=0.2, color="deeppink"),
-            zoom=8, color_continuous_scale="Viridis", 
+            zoom=8, 
     )
 
+# Define interactions Parallel coordinates graph
 @app.callback(
-    [Output('grouped-bar-chart', 'figure'),
-    Output('dropdown-price', 'style'),
-    Output('dropdown-price', 'disabled')],
+    Output(plot1.html_id, 'figure'),
     [Input('dropdown-menu', 'value')]
 )
-def update_grouped(value):
-    disabled_bar = {'display':'block'}
-    disable_drop = False
-    fig_second = px.histogram(df_clean, x='service fee', nbins=20)
-    fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
+def update_parcoords(value):
+    # filtered_df = df_clean[df_clean["bin_price"]==priceParser(priceRange)]
 
-    return fig_second, disabled_bar, disable_drop
+    return plot1.update(VALUE_PAIRS_PCP, df_clean)
 
-def reviewPriceRange(df_clean):
-    df1 = pd.DataFrame(df_clean.groupby(by=['bin','review rate number'])['bin'].count())
-    df1.index.names = ['range', 'review']
-    df1.reset_index(inplace=True)
-    df1['review'] = df1['review'].astype(str)
-    ranges = df1['range'].unique()
-    priceRanges = ['$0 - $10', '$10 - $60', '$60 - $120', '$120 - $180', '$180 - $240']
+@app.callback(
+    Output('grouped-bar-chart', 'figure'),
+    [Input('dropdown-menu', 'value')]
+)
+def update_histogram(value):
+    if (value == 'Average Price'):
+        fig_second = px.histogram(df_clean, x='service fee', nbins=20)
+        fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
 
-    for element in ranges:
-        inputToken = element
-        if element == '(0, 10]':
-            df1['range'] = df1['range'].str.replace(re.escape(inputToken), priceRanges[0])
-        if element == '(10, 60]':
-            df1['range'] = df1['range'].str.replace(re.escape(inputToken), priceRanges[1])
-        if element == '(60, 120]':
-            df1['range'] = df1['range'].str.replace(re.escape(inputToken), priceRanges[2])
-        if element == '(120, 180]':
-            df1['range'] = df1['range'].str.replace(re.escape(inputToken), priceRanges[3])
-        if element == '(180, 240]':
-            df1['range'] = df1['range'].str.replace(re.escape(inputToken), priceRanges[4])
-
-    return df1
+    return fig_second
 
 def priceParser(priceRange):
     if priceRange == '$50 - $280':
