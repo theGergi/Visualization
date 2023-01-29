@@ -4,14 +4,14 @@ import pandas as pd
 import numpy as np
 
 class Parcoords(html.Div):
-    def __init__(self, name, df):
-        self.html_id = name.lower().replace(" ", "-")
-        self.df_display = df.head(50)
+    def __init__(self, df):
+        self.html_id = 'parcoord'
+        self.df_display = df
         # Equivalent to `html.Div([...])`
         super().__init__(
             className="graph_card",
             children=[
-                html.H6(name),
+                #html.H6(name),
                 dcc.Graph(id=self.html_id)
             ],
         )
@@ -37,8 +37,12 @@ class Parcoords(html.Div):
                         showscale = True,
                         cmin = bounds[0][0],
                         cmax = bounds[0][1]),
-                dimensions = dimensions)
+                
+                dimensions = dimensions),
+                
             # ,layout = dict(plot_bgcolor='rgba(50,0,0,0)')
         )
-
+        self.fig.update_layout(
+            margin=dict(l=20, r=20, b=20)
+        )
         return self.fig
