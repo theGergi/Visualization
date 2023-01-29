@@ -1,3 +1,4 @@
+import math
 from dash import Dash, dcc, html, Input, Output, State, dash_table
 import plotly.express as px
 import pandas as pd
@@ -10,7 +11,9 @@ import numpy as np
 import re
 
 
-VALUE_PAIRS_PCP = [("price","Price"),("review rate number","Review rate number"),("Construction year","Construction year"),("service fee","Service fee"),("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
+VALUE_PAIRS_PCP = [("price","Price"),("service fee","Service fee"),("review rate number","Review rate number"),("Construction year","Construction year"),
+("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
+#('host_response_time','Reponse Time'),('host_response_rate','Response rate'),('host_acceptance_rate','Acceptance rate'),('host_is_superhost','Superhost')]
 
 def clean(x):
     x = x.replace("$", "").replace(" ", "")
@@ -22,10 +25,15 @@ def cleanServiceFee(x):
     x = x.replace("$", "").replace(" ", "")
     return int(x)
 
+def cleanAvailability365(x):
+    x = min(x, 365)
+    return x
+
 df = pd.read_csv('airbnb_open_data.csv', usecols=['NAME','host id', 'host_identity_verified','host name',
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
+#'host_response_time','host_response_rate','host_acceptance_rate','host_is_superhost']) # Added for parallel coordinates
 # df_big = pd.read_csv()
 # 'neighbourhood_group_cleansed','latitude','long',
 # 'room type','price','service fee','review rate number','availability 365'
@@ -72,10 +80,7 @@ df_clean['bin'] = df_clean['bin'].astype(str)
 df_clean['bin_price'] = pd.cut(x=df_clean['price'], bins=5, precision=0)
 df_clean['bin_price'] = df_clean['bin_price'].astype(str)
 
-# print(pd.cut(x=df_clean['price'], bins=5, precision=0).unique)
-
 # reducing dataset size for faster user experience
-# 
 df_small = df_clean[:100]
 radar_cols = ['price','service fee','minimum nights','number of reviews']
 df_normalized = normalizeColumns(df_small[radar_cols])
@@ -84,10 +89,14 @@ radar_fig = PLgetRadarChart(pd.DataFrame(), names='NAME')
 
 # Make the layout 
 app.layout = html.Div(children=[
-    html.Div(
-        className='row', children=[
+    html.Div(className='row', children=[
+        html.Div(className='banner', children =[
+            html.H2('Dash - Airbnb Listings'),
+            html.Hr()
+        ]),
+        html.Div(className='row', children = [
             html.Div(className='four columns div-user-controls', children=[
-                html.H2('Dash - Airbnb Listings'),
+                
                 html.P('''Filtering Options'''),
                 html.Hr(),
                 dcc.Dropdown(
@@ -152,9 +161,12 @@ app.layout = html.Div(children=[
                             )
                         ]),                  
                         
-                    html.Div(className='four columns div-for-charts-bg-grey', children=[
-
-                        ], id='grouped-bar-chart', style={'display': 'inline-block'}),
+                    html.Div(className='four columns div-for-charts-bg-grey', 
+                        children=[
+                            dcc.Graph(
+                                id='grouped-bar-chart',
+                            )
+                        ]),
                     ]
                 ),
                 html.Div(
@@ -164,9 +176,8 @@ app.layout = html.Div(children=[
                 ]),
                 
             ])
-            
-        ], 
-    )
+        ])
+    ])
 ])
 
 @app.callback(
@@ -180,7 +191,8 @@ def select_listings(selected_rows):
     display_df = df_normalized.iloc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
     return fig
-    
+
+
 @app.callback(
     [Output('hexbin-mapbox', 'figure'),
     Output('radio-menu-neighbourhood', 'style'),
@@ -233,6 +245,7 @@ def update_comparison(value, selectedData):
     print(df_filtered)
     return plot1.update(VALUE_PAIRS_PCP, df_filtered)
 
+    return plot1.update(VALUE_PAIRS_PCP, filtered_df)
 #     Output(plot1.html_id, "figure"), [
 #     Input('dropdown-menu', 'value')
 # ])
@@ -246,39 +259,22 @@ def make_hexbin(df, setOriginalData):
             opacity=1.0, labels={"color": "Listings Count"},
             min_count=1, show_original_data=setOriginalData, 
             original_data_marker=dict(size=4, opacity=0.2, color="deeppink"),
-            zoom=8,
+            zoom=8, color_continuous_scale="Viridis", 
     )
 
 @app.callback(
-    [Output('grouped-bar-chart', 'children'),
+    [Output('grouped-bar-chart', 'figure'),
     Output('dropdown-price', 'style'),
     Output('dropdown-price', 'disabled')],
-    [Input('dropdown-menu', 'value'),
-    Input('dropdown-price', 'value')],
-    [State('grouped-bar-chart', 'children')]
+    [Input('dropdown-menu', 'value')]
 )
-def update_grouped(value, priceRange, children):
-    disabled_bar = {'display':'None'}
-    disable_drop = True
-    if (value == 'price'):
-        disabled_bar = {'display':'block'}
-        disable_drop = False
-        filtered_df = reviewPriceRange(df_clean[df_clean["bin_price"]==priceParser(priceRange)])
-        if children:
-            children[0]["props"]["figure"] = px.bar(filtered_df, x='range', y='bin', color='review', 
-                        barmode="group", text='bin')
-            children[0]["props"]["figure"].update_layout(xaxis_title="Service fee range", yaxis_title="Total Review")
-        else:
-            fig_second = px.bar(filtered_df, x='range', y='bin', color='review', 
-                        barmode="group", text='bin')
-            fig_second.update_layout(xaxis_title="Service fee range", yaxis_title="Total Review")
-            children.append(
-                    dcc.Graph(
-                        figure=fig_second)
-            )
-    print("disabled: ")
-    print(disabled_bar)
-    return children, disabled_bar, disable_drop
+def update_grouped(value):
+    disabled_bar = {'display':'block'}
+    disable_drop = False
+    fig_second = px.histogram(df_clean, x='service fee', nbins=20)
+    fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
+
+    return fig_second, disabled_bar, disable_drop
 
 def reviewPriceRange(df_clean):
     df1 = pd.DataFrame(df_clean.groupby(by=['bin','review rate number'])['bin'].count())
