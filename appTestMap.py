@@ -56,7 +56,13 @@ df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
 df_clean['service fee'] = df_clean['service fee'].apply(cleanServiceFee)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
-
+# print(len(df_clean['long']))
+# print(len(df_clean['lat']))
+# print(len(df_clean))
+# print(len((zip(df['long'], df ['lat']))))
+# print(list(zip(df['long'], df ['lat'])))
+df_clean['long_lat'] = pd.Series(zip(df['long'], df ['lat']))
+# df_filtered = df_clean.copy(deep=True)
 
 plot1 = Parcoords("Comparison", df_clean)
 
@@ -135,6 +141,7 @@ app.layout = html.Div(children=[
                 html.Div(
                     className="row",
                     children = [
+                    html.Div(id='my-output'),
                     html.Div(
                         className="eight columns",
                         children=[
@@ -150,7 +157,6 @@ app.layout = html.Div(children=[
                         ], id='grouped-bar-chart', style={'display': 'inline-block'}),
                     ]
                 ),
-                
                 html.Div(
                     className="row",
                     children=[
@@ -168,15 +174,13 @@ app.layout = html.Div(children=[
     Input('preview_table', 'selected_rows')
 )
 def select_listings(selected_rows):
-    # print(selected_rows)
+    print(selected_rows)
     if not selected_rows:
         return PLgetRadarChart(pd.DataFrame(), names='NAME')
     display_df = df_normalized.iloc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
     return fig
-
-
-
+    
 @app.callback(
     [Output('hexbin-mapbox', 'figure'),
     Output('radio-menu-neighbourhood', 'style'),
@@ -215,12 +219,20 @@ def update_graph(value, value_neighbour, value_room):
 @app.callback(
     Output(plot1.html_id, 'figure'),
     [Input('dropdown-menu', 'value'),
-    Input('dropdown-price', 'value')]
+    Input('hexbin-mapbox', 'selectedData')]
 )
-def update_comparison(value, priceRange):
-    filtered_df = df_clean[df_clean["bin_price"]==priceParser(priceRange)]
+def update_comparison(value, selectedData):
+    if selectedData == None:
+        return plot1.update(VALUE_PAIRS_PCP, df_clean)
+    points_list = selectedData['points']
+    # print(selectedData)
+    # print(points_list)
+    coords_list = [(point.get('lon'),point.get('lat')) for point in points_list]
+    # print(coords_list)
+    df_filtered = df_clean.query('long_lat in @coords_list')
+    print(df_filtered)
+    return plot1.update(VALUE_PAIRS_PCP, df_filtered)
 
-    return plot1.update(VALUE_PAIRS_PCP, filtered_df)
 #     Output(plot1.html_id, "figure"), [
 #     Input('dropdown-menu', 'value')
 # ])
@@ -306,3 +318,4 @@ def priceParser(priceRange):
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+

@@ -32,6 +32,7 @@ def PLgetRadarChart(normalized_df: pd.DataFrame, names: str = None) -> go.Figure
         )
         fig.update_yaxes(visible=False)
         fig.update_xaxes(visible=False)
+        
         return fig
     for key in normalized_df.index:
         print(key)
