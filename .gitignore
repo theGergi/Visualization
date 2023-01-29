@@ -10,7 +10,7 @@ codealike.json
 
 # datasets
 *.csv
-
+*.zip
 # CMake
 cmake-build-*/
 

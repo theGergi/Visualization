@@ -20,7 +20,7 @@ def cleanServiceFee(x):
     return int(x)
 
 df = pd.read_csv('airbnb_open_data.csv', usecols=['NAME','host id', 'host_identity_verified','host name',
-'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
+'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancel lation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
 # df_big = pd.read_csv()
