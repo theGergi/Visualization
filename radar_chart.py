@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from dash import Dash, dcc, html, Input, Output, State, dash_table
 
 
 # def MTPLTgetRadarChartFromAgg(agg_df, range_list):
@@ -22,6 +23,16 @@ import plotly.graph_objects as go
 
 def PLgetRadarChart(normalized_df: pd.DataFrame, names: str = None) -> go.Figure:
     fig = go.Figure()
+    if normalized_df.empty:
+        fig.add_annotation(
+            text='No data selected!',
+            showarrow=False,
+            font= dict(size = 28)
+        
+        )
+        fig.update_yaxes(visible=False)
+        fig.update_xaxes(visible=False)
+        return fig
     for key in normalized_df.index:
         print(key)
         fig.add_trace(go.Scatterpolar(

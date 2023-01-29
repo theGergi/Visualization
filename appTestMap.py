@@ -23,7 +23,7 @@ def cleanServiceFee(x):
     return int(x)
 
 df = pd.read_csv('airbnb_open_data.csv', usecols=['NAME','host id', 'host_identity_verified','host name',
-'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancel lation_policy',
+'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
 # df_big = pd.read_csv()
@@ -74,7 +74,7 @@ df_small = df_clean[:100]
 radar_cols = ['price','service fee','minimum nights','number of reviews']
 df_normalized = normalizeColumns(df_small[radar_cols])
 df_normalized['NAME'] = df_small['NAME']
-radar_fig = PLgetRadarChart(df_normalized[:2], names='NAME')
+radar_fig = PLgetRadarChart(pd.DataFrame(), names='NAME')
 
 # Make the layout 
 app.layout = html.Div(children=[
@@ -168,6 +168,9 @@ app.layout = html.Div(children=[
     Input('preview_table', 'selected_rows')
 )
 def select_listings(selected_rows):
+    # print(selected_rows)
+    if not selected_rows:
+        return PLgetRadarChart(pd.DataFrame(), names='NAME')
     display_df = df_normalized.iloc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
     return fig
