@@ -217,7 +217,7 @@ def update_graph(value, value_neighbour, value_room):
             zoom=8,
         )
 
-    fig.update_layout(margin=dict(b=-1, t=0, l=0, r=0))
+    fig.update_layout(margin=dict(b=0, t=0, l=0, r=0))
     return fig, disabled_neighbour, disabled_room
 
 
