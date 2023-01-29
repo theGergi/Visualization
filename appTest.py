@@ -3,11 +3,13 @@ import plotly.express as px
 import pandas as pd
 import dash_bootstrap_components as dbc
 import re
+import os
 
 def clean(x):
     x = x.replace("$", "").replace(" ", "")
     return int(x)
 
+# print(os. getcwd())
 df = pd.read_csv('airbnb_open_data.csv', usecols=['NAME','host id', 'host_identity_verified','host name',
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
