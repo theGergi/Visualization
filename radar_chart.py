@@ -27,9 +27,12 @@ def PLgetRadarChart(normalized_df: pd.DataFrame, names: str = None) -> go.Figure
         fig.add_annotation(
             text='No data selected!',
             showarrow=False,
-            font= dict(size = 28)
-        
+            font= dict(size = 28)        
         )
+        fig.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
+        fig.update_layout
         fig.update_yaxes(visible=False)
         fig.update_xaxes(visible=False)
         return fig

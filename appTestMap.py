@@ -21,10 +21,6 @@ def clean(x):
         x = x.replace(",", "")
     return int(x)
 
-def cleanServiceFee(x):
-    x = x.replace("$", "").replace(" ", "")
-    return int(x)
-
 def cleanAvailability365(x):
     x = min(x, 365)
     return x
@@ -62,7 +58,7 @@ server = app.server
 df_clean = df.copy()
 df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
-df_clean['service fee'] = df_clean['service fee'].apply(cleanServiceFee)
+df_clean['service fee'] = df_clean['service fee'].apply(clean)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
 df_clean['availability 365'] = df_clean['availability 365'].apply(cleanAvailability365)
 
@@ -82,7 +78,7 @@ df_normalized['NAME'] = df_small['NAME']
 radar_fig = PLgetRadarChart(pd.DataFrame(), names='NAME')
 
 # Make the layout 
-app.layout = html.Div(children=[
+app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, children=[
     html.Div(className='row', children=[
         html.Div(className='banner', children =[
             html.H2('Dash - Airbnb Listings'),
@@ -94,15 +90,14 @@ app.layout = html.Div(children=[
                 html.P('''Filtering Options'''),
                 html.Hr(),
                 dcc.Dropdown(
-                    [{'label': 'Location', 'value': 'Location'},
-                    {'label': 'Average Price', 'value': 'price'},
+                    [{'label': 'Average Price', 'value': 'price'},
                     {'label': 'Neighbourhood', 'value': 'neighbourhood group'},
                     {'label': 'Room Type', 'value': 'room type'},
                     {'label': 'Availability', 'value': 'availability 365'}],
                     id='dropdown-menu',
                     searchable=False,
                     clearable=False,
-                    value="Location",
+                    style={'backgroundColor':"#1f2630"},
                 ),
                 html.Br(),
                 dash_table.DataTable(
@@ -110,11 +105,20 @@ app.layout = html.Div(children=[
                     [{"name": i, "id": i} for i in df_small.columns],
                     row_selectable='multi',
                     id='preview_table',
-                    style_table={'height': '300px', 'overflowY': 'auto'},
+                    style_table={'height': '300px', 'overflowY': 'auto', 'color': '#2cfec1',},
                     page_size=10,
+                    style_data={
+                        'color': '#2cfec1',
+                        'backgroundColor': "#1f2630"},
+                    style_header={
+                            'backgroundColor': "#1f2630",
+                            'color': '#2cfec1',
+                            'fontWeight': 'bold'},
                     ),
 
-                dcc.Graph(figure=radar_fig, id = 'radar_fig')
+                dcc.Graph(figure=radar_fig, 
+                    id = 'radar_fig',
+                    style={'backgroundColor':"#1f2630"},)
                 ],
                     
             ),
@@ -130,7 +134,7 @@ app.layout = html.Div(children=[
                         dcc.Graph(
                             id='hexbin-mapbox',
                             className='twelve columns',
-                            style={'display': 'inline-block'}
+                            style={'backgroundColor':"#1f2630"}
                             )
                         ]),                  
                         
@@ -138,6 +142,7 @@ app.layout = html.Div(children=[
                         children=[
                             dcc.Graph(
                                 id='grouped-bar-chart',
+                                style={'backgroundColor':"#1f2630"}
                             )
                         ]),
                     ]
@@ -154,6 +159,7 @@ app.layout = html.Div(children=[
     ])
 ])
 
+# Updates the radar chart
 @app.callback(
     Output('radar_fig', "figure"),
     Input('preview_table', 'selected_rows')
@@ -163,8 +169,12 @@ def select_listings(selected_rows):
         return PLgetRadarChart(pd.DataFrame(), names='NAME')
     display_df = df_normalized.iloc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
+    fig.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
     return fig
 
+# Updates the hexbin map
 @app.callback(
     Output('hexbin-mapbox', 'figure'),
     [Input('dropdown-menu', 'value')]
@@ -182,8 +192,12 @@ def update_hexbin(value):
         )
     else:
         fig = make_hexbin(df_clean, True)
+        
 
     fig.update_layout(margin=dict(b=0, t=0, l=0, r=0))
+    fig.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
     return fig
 
 def make_hexbin(df, setOriginalData):
@@ -201,32 +215,42 @@ def make_hexbin(df, setOriginalData):
     [Input('dropdown-menu', 'value')]
 )
 def update_parcoords(value):
-    # filtered_df = df_clean[df_clean["bin_price"]==priceParser(priceRange)]
+    fig = plot1.update(VALUE_PAIRS_PCP, df_clean)
+    fig.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
+    return fig
 
-    return plot1.update(VALUE_PAIRS_PCP, df_clean)
-
+# Updates the histogram
 @app.callback(
     Output('grouped-bar-chart', 'figure'),
     [Input('dropdown-menu', 'value')]
 )
 def update_histogram(value):
-    if (value == 'Average Price'):
-        fig_second = px.histogram(df_clean, x='service fee', nbins=20)
-        fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
-
-    return fig_second
-
-def priceParser(priceRange):
-    if priceRange == '$50 - $280':
-        return "(49.0, 280.0]"
-    elif priceRange == '$281 - $509':
-        return "(281.0, 510.0]"
-    elif priceRange == '$510 - $739':
-        return "(510.0, 740.0]"
-    elif priceRange == '$740 - $969':
-        return "(740.0, 970.0]"
+    if value is None:
+        return dict(
+            data=[dict(x=0, y=0)],
+            layout=dict(
+                title="Nothing is selected",
+                paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"),
+            ),
+        )
+    if (value == 'price'):
+        fig_second = px.histogram(df_clean, x='service fee', nbins=10,
+                    labels={'service fee':'Service Fee($)'})
+    elif (value == 'availability 365'):
+        fig_second = px.histogram(df_clean, x='availability 365', nbins=10,
+                    labels={'availability 365':'Property Availability(days)'})
     else:
-        return "(970.0, 1200.0]"
+        fig_second = px.histogram(df_clean, x=value, 
+                    color=value, labels={'neighbourhood group':'group'})
+    fig_second.update_layout(margin = dict(l=0,r=20,b=20,t=0),bargap=0.2)
+    fig_second.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
+    return fig_second
     
 
 if __name__ == '__main__':
