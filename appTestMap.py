@@ -54,6 +54,8 @@ px.set_mapbox_access_token("pk.eyJ1IjoibXJhZmlwaCIsImEiOiJjbGMzdWZ0MTIwNmt5M3B0O
 app = Dash(__name__,external_stylesheets=external_stylesheets)
 
 app.config.suppress_callback_exceptions = True
+app.css.config.serve_locally = True
+app.scripts.config.serve_locally = True
 
 styles = {
     'pre' : {
@@ -151,11 +153,11 @@ def get_cloropleth(df: pd.DataFrame = pd.DataFrame(), color_col: str = 'price'):
 app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, children=[
     html.Div(className='row', children=[
         html.Div(className='banner', children =[
-            html.H2('Dash - Airbnb Listings'),
+            html.H2('Dash - Airbnb Listings', style={'marginTop':'0px','marginBottom':'0px','paddingTop':'25px'}),
             html.Hr()
         ]),
         html.Div(className='row', children = [
-            html.Div(className='four coldensityumns div-user-controls', children=[
+            html.Div(className='four columns div-user-controls', children=[
                 html.Div(id='test'),
                 html.P('''Filtering Options'''),
                 html.Hr(),
@@ -204,7 +206,7 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                 html.Div(
                     className="row",
                     children = [
-                    html.Div(id='my-output'),
+                    #html.Div(id='my-output'),
                     html.Div(
                         className="eight columns",
                         children=[
