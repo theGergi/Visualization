@@ -35,12 +35,13 @@ def PLgetRadarChart(normalized_df: pd.DataFrame, names: str = None) -> go.Figure
         fig.update_layout
         fig.update_yaxes(visible=False)
         fig.update_xaxes(visible=False)
+        
         return fig
     for key in normalized_df.index:
         print(key)
         fig.add_trace(go.Scatterpolar(
             r = normalized_df.loc[key],
-            theta = normalized_df.drop(names, axis=1).columns if names else normalized_df.columns,
+            theta = normalized_df.drop([names, 'id'], axis=1).columns if names else normalized_df.columns,
             fill ='toself',
             name = normalized_df.loc[key][names] if names else f'{key}' 
         ))

@@ -1,5 +1,6 @@
 import math
-from dash import Dash, dcc, html, Input, Output, State, dash_table
+import json
+from dash import Dash, dcc, html, Input, Output, State, dash_table, State
 import plotly.express as px
 import pandas as pd
 import plotly.graph_objects as go
@@ -9,7 +10,19 @@ from radar_chart import PLgetRadarChart, normalizeColumns
 from jbi100_app.views.parcoords import Parcoords
 import numpy as np
 import re
+from time import perf_counter
 
+#WHAT I DID 
+# SELECTING DROPDOWN CHANGES TABLE ORDERING/FILTER
+# SELECING DROPDOWN CHANGES MAP COLOR
+# SELECTING DROPDOWN CHANGES HIST TYPE
+
+# SELECTING ROW ADDS RADAR
+# SELECTING ROW ADD POINT ON MAP
+
+#SELECTING MAP HOOD CHANGES HIST, TABLE AND PCP DATA
+
+#SELECTING HIST CHANGES TABLE AND PCP DATA AND AND MAP COLOR IF HIST CATEGORICAL
 
 VALUE_PAIRS_PCP = [("price","Price"),("service fee","Service fee"),("review rate number","Review rate number"),("Construction year","Construction year"),
 ("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
@@ -25,7 +38,7 @@ def cleanAvailability365(x):
     x = min(x, 365)
     return x
 
-df = pd.read_csv('airbnb_open_data.csv', usecols=['NAME','host id', 'host_identity_verified','host name',
+df = pd.read_csv('airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_identity_verified','host name',
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
@@ -49,6 +62,7 @@ styles = {
     }
 }
 
+
 app.title = "Dash Map"
 
 server = app.server
@@ -60,7 +74,8 @@ df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
 df_clean['service fee'] = df_clean['service fee'].apply(clean)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
-df_clean['availability 365'] = df_clean['availability 365'].apply(cleanAvailability365)
+df_clean = df_clean.set_index('id', drop=False)
+
 
 plot1 = Parcoords(df_clean)
 
@@ -69,13 +84,67 @@ df_clean['bin'] = pd.cut(x=df_clean['service fee'], bins=[0, 10, 60, 120, 180, 2
 df_clean['bin'] = df_clean['bin'].astype(str)
 df_clean['bin_price'] = pd.cut(x=df_clean['price'], bins=5, precision=0)
 df_clean['bin_price'] = df_clean['bin_price'].astype(str)
-
 # reducing dataset size for faster user experience
 df_small = df_clean[:100]
 radar_cols = ['price','service fee','minimum nights','number of reviews']
-df_normalized = normalizeColumns(df_small[radar_cols])
-df_normalized['NAME'] = df_small['NAME']
+df_normalized = normalizeColumns(df_clean[radar_cols])
+df_normalized['NAME'] = df_clean['NAME']
+df_normalized['id'] = df_clean['id']
+df_normalized = df_normalized.set_index('id', drop=False)
 radar_fig = PLgetRadarChart(pd.DataFrame(), names='NAME')
+
+with open('datasets/neighbourhoods.geojson') as f:
+    hood_geometry = json.load(f)
+# should be global
+quantitative_columns = ['price','availability 365','Construction year',
+            'minimum nights', 'number of reviews']
+categ_col = ['room type', 'instant_bookable']
+categ_default_dict = {"room type": 'Private room', 'instant_bookable':'TRUE'}
+quant_agg_dict = {col:'mean' for col in quantitative_columns}
+agg_dict = quant_agg_dict.copy()
+agg_dict['id'] = 'count'
+def get_categ_counts(categ_col:str, df =df_clean) -> pd.DataFrame:
+    result_df =(df.groupby('neighbourhood')[categ_col]
+            .value_counts()
+            .unstack(level=-1)
+            .fillna(0))
+    df_totals = df.groupby('neighbourhood')['id'].count()
+    result_df = result_df.rename(columns={col: f'{categ_col}_{col}' for col in result_df.columns})
+    for col in result_df.columns:
+        result_df['proportion'+'_'+col] = result_df[col]/df_totals
+    
+    return result_df
+
+def get_hood_df(df = df_clean) -> pd.DataFrame:
+
+    all_colls =['neighbourhood', 'id', 'room type']+quantitative_columns
+    default_group = (df[all_colls]
+        .groupby('neighbourhood', as_index=False)
+        .agg(agg_dict))
+    # print(default_group)
+    for col in categ_col:
+        categ_summary = get_categ_counts(col, df)
+        default_group = default_group.join(categ_summary, on='neighbourhood')
+
+    return default_group
+
+def get_cloropleth(df: pd.DataFrame = pd.DataFrame(), color_col: str = 'price'):
+    if df.empty:
+        df_grouped = get_hood_df()
+    else:
+        df_grouped = get_hood_df(df)
+    fig = px.choropleth_mapbox(df_grouped, geojson=hood_geometry, 
+                        locations='neighbourhood', color=color_col,
+                        featureidkey="properties.neighbourhood",
+                           color_continuous_scale="Viridis",
+                           mapbox_style="carto-positron",
+                           labels={'price':'price'},
+                           zoom=9, center = {"lat": 40.70271, "lon": -73.8993},
+                          )
+    fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    
+    return fig
+
 
 # Make the layout 
 app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, children=[
@@ -85,15 +154,20 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
             html.Hr()
         ]),
         html.Div(className='row', children = [
-            html.Div(className='four columns div-user-controls', children=[
-                
+            html.Div(className='four coldensityumns div-user-controls', children=[
+                html.Div(id='test'),
                 html.P('''Filtering Options'''),
                 html.Hr(),
                 dcc.Dropdown(
-                    [{'label': 'Average Price', 'value': 'price'},
-                    {'label': 'Neighbourhood', 'value': 'neighbourhood group'},
-                    {'label': 'Room Type', 'value': 'room type'},
-                    {'label': 'Availability', 'value': 'availability 365'}],
+                    # [{'label': 'Density', 'value': 'density'},
+                    [{'label': 'Listing Density', 'value': 'density'},
+                    {'label': 'Average Price', 'value': 'price'},
+                    {'label': 'Average Availability', 'value': 'availability 365'},
+                    {'label': 'Average construction year', 'value': 'Construction year'},
+                    {'label': 'Average minimum nights', 'value': 'minimum nights'},
+                    {'label': 'Average review number', 'value': 'number of reviews'},
+                    {'label': 'Room type', 'value': 'room type'},
+                    {'label': 'Instant bookable', 'value': 'instant_bookable'}],
                     id='dropdown-menu',
                     searchable=False,
                     clearable=False,
@@ -128,12 +202,15 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                 html.Div(
                     className="row",
                     children = [
+                    html.Div(id='my-output'),
                     html.Div(
                         className="eight columns",
                         children=[
                         dcc.Graph(
-                            id='hexbin-mapbox',
+                            id='cloropleth-map',
                             className='twelve columns',
+                            style={'display': 'inline-block'},
+                            figure=get_cloropleth()
                             style={'backgroundColor':"#1f2630"}
                             )
                         ]),                  
@@ -141,13 +218,12 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                     html.Div(className='four columns div-for-charts-bg-grey', 
                         children=[
                             dcc.Graph(
-                                id='grouped-bar-chart',
+                                id='histogram',
                                 style={'backgroundColor':"#1f2630"}
                             )
                         ]),
                     ]
                 ),
-                
                 html.Div(
                     className="row",
                     children=[
@@ -162,12 +238,12 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
 # Updates the radar chart
 @app.callback(
     Output('radar_fig', "figure"),
-    Input('preview_table', 'selected_rows')
+    Input('preview_table', 'selected_row_ids'),
 )
 def select_listings(selected_rows):
     if not selected_rows:
         return PLgetRadarChart(pd.DataFrame(), names='NAME')
-    display_df = df_normalized.iloc[selected_rows]
+    display_df = df_normalized.loc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
@@ -176,82 +252,143 @@ def select_listings(selected_rows):
 
 # Updates the hexbin map
 @app.callback(
-    Output('hexbin-mapbox', 'figure'),
-    [Input('dropdown-menu', 'value')]
+    Output('cloropleth-map', 'figure'),
+    [Input('dropdown-menu', 'value'),
+    Input('histogram', 'selectedData'),
+    Input('preview_table', 'selected_row_ids')]
 )
-def update_hexbin(value):
-    if (value == 'Average Price'):
-        label = "Average " + value.capitalize()
-        fig = ff.create_hexbin_mapbox(
-            data_frame=df_clean, lat="lat", lon="long",
-            opacity=1.0, labels={"color": label},
-            min_count=1, color=value, agg_func=np.mean,
-            show_original_data=True,
-            original_data_marker=dict(size=4, opacity=0.2, color="deeppink"),
-            zoom=8,
-        )
-    else:
-        fig = make_hexbin(df_clean, True)
-        
+def update_graph(value, selectedData, selectedTableRows):
+    if value == 'density':
+        value = 'id'
+    elif value not in quantitative_columns:
+        if selectedData:
+            categ_val = [point['x'] for point in selectedData['points']][0]
+            value = f'proportion_{value}_{categ_val}'
+        else: 
+            value = f'proportion_{value}_{categ_default_dict[value]}'
 
-    fig.update_layout(margin=dict(b=0, t=0, l=0, r=0))
+    fig = get_cloropleth(pd.DataFrame(), color_col=value)
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
+
+    # if selectedTableRows:
+    #     lats = list(df_clean.loc[selectedTableRows]['lat'])
+    #     lons = list(df_clean.loc[selectedTableRows]['long'])
+    #     texts = list(df_clean.loc[selectedTableRows]['NAME'])
+    #     print(texts)
+
+    #     fig.add_scattermapbox(
+    #         lat = lats,
+    #         lon = lons,
+    #         mode = 'markers+text',
+    #         text = texts,
+    #         marker_size=20,
+    #         marker_color='rgb(235, 0, 100)'
+    #     )
     return fig
 
-def make_hexbin(df, setOriginalData):
-    return ff.create_hexbin_mapbox(
-            data_frame=df, lat="lat", lon="long",
-            opacity=1.0, labels={"color": "Listings Count"},
-            min_count=1, show_original_data=setOriginalData, 
-            original_data_marker=dict(size=4, opacity=0.2, color="deeppink"),
-            zoom=8, 
-    )
+df_sorted = df_clean
+# global df_sorted
+@app.callback(
+    Output('preview_table', 'data'),
+    [Input('dropdown-menu', 'value'),
+    Input('cloropleth-map', 'selectedData'),
+    Input('histogram', 'selectedData'),
+    State('histogram','figure')]
+)
+def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
+    if value == 'density':
+        value = 'NAME'
+    hist_filter_data = filter_hist_selected(histSelectedData, histFigDict)
+    df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=False)
+    return df_sorted.iloc[:100].to_dict('records')
 
+# @app.callback(
+#     Output('test', 'children'),
+#     Input('cloropleth-map', 'clickData'),
+# )
+# def get_map_click_data(clickData):
+#     print(clickData)
+#     return 'poop'
 # Define interactions Parallel coordinates graph
 @app.callback(
     Output(plot1.html_id, 'figure'),
-    [Input('dropdown-menu', 'value')]
+    [Input('cloropleth-map', 'selectedData'),
+    Input('histogram', 'selectedData'),
+    State('histogram','figure')]
 )
-def update_parcoords(value):
-    fig = plot1.update(VALUE_PAIRS_PCP, df_clean)
+def update_comparison(mapSelectedData, histSelectedData, histFigDict):#
+    #MAKE SURE THE X AXIS TEXT NAME IS THE SAME AS THE COLUMN NAME OF PANDAS
+    # OTHERWISE WE CANT FIND THE NEED VALUES
+    # print(hist_column)  
+    hist_filter_data = filter_hist_selected(histSelectedData,  histFigDict)
+    fig = plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data))
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
     return fig
 
-# Updates the histogram
-@app.callback(
-    Output('grouped-bar-chart', 'figure'),
-    [Input('dropdown-menu', 'value')]
-)
-def update_histogram(value):
-    if value is None:
-        return dict(
-            data=[dict(x=0, y=0)],
-            layout=dict(
-                title="Nothing is selected",
-                paper_bgcolor="#1f2630",
-                plot_bgcolor="#1f2630",
-                font=dict(color="#2cfec1"),
-            ),
-        )
-    if (value == 'price'):
-        fig_second = px.histogram(df_clean, x='service fee', nbins=10,
-                    labels={'service fee':'Service Fee($)'})
-    elif (value == 'availability 365'):
-        fig_second = px.histogram(df_clean, x='availability 365', nbins=10,
-                    labels={'availability 365':'Property Availability(days)'})
+def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataFrame:
+    if selectedData == None:
+        return df
+    hood_list = [point['location'] for point in selectedData['points']]
+    df_map_filter = df.query('neighbourhood in @hood_list')
+    return df_map_filter
+#     Output(plot1.html_id, "figure"), [
+#     Input('dropdown-menu', 'value')
+# ])
+# def update_comparison(value):
+#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
+
+def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.DataFrame:
+    if not selectedData:
+        return df
+    if not histFigDict:
+        column = 'price'
     else:
-        fig_second = px.histogram(df_clean, x=value, 
-                    color=value, labels={'neighbourhood group':'group'})
-    fig_second.update_layout(margin = dict(l=0,r=20,b=20,t=0),bargap=0.2)
+        column = histFigDict['layout']['xaxis']['title']['text']
+    
+    print(column)
+    print(selectedData['points'])
+    if column in quantitative_columns:
+        x_min = float(selectedData['range']['x'][0])
+        x_max =  float(selectedData['range']['x'][1])
+        # print(df.query(f'{column} >= @x_min and {column} <= @x_max'))
+        return df.query(f'{column} >= @x_min and {column} <= @x_max')
+    else:
+        groups = [point['x'] for point in selectedData['points']]
+        print(groups)
+        return df.query(f'`{column}` in @groups')
+@app.callback(
+    Output('histogram', 'figure'),
+    [Input('dropdown-menu', 'value'),
+    Input('cloropleth-map', 'selectedData')]
+)
+def update_grouped(value, selectedData):
+
+    if value is None:
+          return dict(
+              data=[dict(x=0, y=0)],
+              layout=dict(
+                  title="Nothing is selected",
+                  paper_bgcolor="#1f2630",
+                  plot_bgcolor="#1f2630",
+                  font=dict(color="#2cfec1"),
+              ),
+          )
+    if value == 'density':
+        print('yes')
+        value = 'neighbourhood group'
+    print(value)
+    fig_second = px.histogram(filter_map_selection(selectedData), x=value, nbins=20)
+    fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
     fig_second.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
+
     return fig_second
-    
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+   app.run_server(debug=True)
+
