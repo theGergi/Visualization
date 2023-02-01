@@ -34,10 +34,6 @@ def clean(x):
         x = x.replace(",", "")
     return int(x)
 
-def cleanServiceFee(x):
-    x = x.replace("$", "").replace(" ", "")
-    return int(x)
-
 def cleanAvailability365(x):
     x = min(x, 365)
     return x
@@ -76,7 +72,7 @@ server = app.server
 df_clean = df.copy()
 df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
-df_clean['service fee'] = df_clean['service fee'].apply(cleanServiceFee)
+df_clean['service fee'] = df_clean['service fee'].apply(clean)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
 df_clean = df_clean.set_index('id', drop=False)
 
@@ -146,11 +142,12 @@ def get_cloropleth(df: pd.DataFrame = pd.DataFrame(), color_col: str = 'price'):
                            zoom=9, center = {"lat": 40.70271, "lon": -73.8993},
                           )
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    
     return fig
 
 
 # Make the layout 
-app.layout = html.Div(children=[
+app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, children=[
     html.Div(className='row', children=[
         html.Div(className='banner', children =[
             html.H2('Dash - Airbnb Listings'),
@@ -174,39 +171,28 @@ app.layout = html.Div(children=[
                     id='dropdown-menu',
                     searchable=False,
                     clearable=False,
-                    value="price",
+                    style={'backgroundColor':"#1f2630"},
                 ),
-                # html.Br(),
-                # dcc.RadioItems(
-                #     id='radio-menu-neighbourhood',
-                #     options=df_clean['neighbourhood group'].unique(),
-                #     style= {'display': 'none'},
-                #     value='Brooklyn',
-                # ),
-                # dcc.RadioItems(
-                #     id='radio-menu-room',
-                #     options=df_clean['room type'].unique(),
-                #     style= {'display': 'none'},
-                #     value='Private room',
-                # ),
-                # dcc.Dropdown(
-                #     options=['$50 - $280', '$281 - $509', '$510 - $739', '$740 - $969', '$970 - $1200'],
-                #     id='dropdown-price',
-                #     value='$50 - $280',
-                #     disabled=True,
-                #     style= {'display': 'none'},
-                # ),
                 html.Br(),
                 dash_table.DataTable(
                     df_small.to_dict('records'),
                     [{"name": i, "id": i} for i in df_small.columns],
                     row_selectable='multi',
                     id='preview_table',
-                    style_table={'height': '300px', 'overflowY': 'auto'} ,
+                    style_table={'height': '300px', 'overflowY': 'auto', 'color': '#2cfec1',},
                     page_size=10,
+                    style_data={
+                        'color': '#2cfec1',
+                        'backgroundColor': "#1f2630"},
+                    style_header={
+                            'backgroundColor': "#1f2630",
+                            'color': '#2cfec1',
+                            'fontWeight': 'bold'},
                     ),
 
-                dcc.Graph(figure=radar_fig, id = 'radar_fig')
+                dcc.Graph(figure=radar_fig, 
+                    id = 'radar_fig',
+                    style={'backgroundColor':"#1f2630"},)
                 ],
                     
             ),
@@ -225,6 +211,7 @@ app.layout = html.Div(children=[
                             className='twelve columns',
                             style={'display': 'inline-block'},
                             figure=get_cloropleth()
+                            style={'backgroundColor':"#1f2630"}
                             )
                         ]),                  
                         
@@ -232,6 +219,7 @@ app.layout = html.Div(children=[
                         children=[
                             dcc.Graph(
                                 id='histogram',
+                                style={'backgroundColor':"#1f2630"}
                             )
                         ]),
                     ]
@@ -247,6 +235,7 @@ app.layout = html.Div(children=[
     ])
 ])
 
+# Updates the radar chart
 @app.callback(
     Output('radar_fig', "figure"),
     Input('preview_table', 'selected_row_ids'),
@@ -256,9 +245,12 @@ def select_listings(selected_rows):
         return PLgetRadarChart(pd.DataFrame(), names='NAME')
     display_df = df_normalized.loc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
+    fig.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
     return fig
 
-
+# Updates the hexbin map
 @app.callback(
     Output('cloropleth-map', 'figure'),
     [Input('dropdown-menu', 'value'),
@@ -276,6 +268,9 @@ def update_graph(value, selectedData, selectedTableRows):
             value = f'proportion_{value}_{categ_default_dict[value]}'
 
     fig = get_cloropleth(pd.DataFrame(), color_col=value)
+    fig.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
 
     # if selectedTableRows:
     #     lats = list(df_clean.loc[selectedTableRows]['lat'])
@@ -328,7 +323,11 @@ def update_comparison(mapSelectedData, histSelectedData, histFigDict):#
     # OTHERWISE WE CANT FIND THE NEED VALUES
     # print(hist_column)  
     hist_filter_data = filter_hist_selected(histSelectedData,  histFigDict)
-    return plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data))
+    fig = plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data))
+    fig.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
+    return fig
 
 def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataFrame:
     if selectedData == None:
@@ -368,12 +367,25 @@ def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.Da
 )
 def update_grouped(value, selectedData):
 
+    if value is None:
+          return dict(
+              data=[dict(x=0, y=0)],
+              layout=dict(
+                  title="Nothing is selected",
+                  paper_bgcolor="#1f2630",
+                  plot_bgcolor="#1f2630",
+                  font=dict(color="#2cfec1"),
+              ),
+          )
     if value == 'density':
         print('yes')
         value = 'neighbourhood group'
     print(value)
     fig_second = px.histogram(filter_map_selection(selectedData), x=value, nbins=20)
     fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
+    fig_second.update_layout(paper_bgcolor="#1f2630",
+                plot_bgcolor="#1f2630",
+                font=dict(color="#2cfec1"))
 
     return fig_second
 
