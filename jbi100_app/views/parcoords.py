@@ -43,6 +43,6 @@ class Parcoords(html.Div):
             # ,layout = dict(plot_bgcolor='rgba(50,0,0,0)')
         )
         self.fig.update_layout(
-            margin=dict(l=20, r=20, b=20)
+            margin=dict(l=30, r=20, b=20)
         )
         return self.fig
