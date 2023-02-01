@@ -103,6 +103,7 @@ categ_default_dict = {"room type": 'Private room', 'instant_bookable':'TRUE'}
 quant_agg_dict = {col:'mean' for col in quantitative_columns}
 agg_dict = quant_agg_dict.copy()
 agg_dict['id'] = 'count'
+
 def get_categ_counts(categ_col:str, df =df_clean) -> pd.DataFrame:
     result_df =(df.groupby('neighbourhood')[categ_col]
             .value_counts()
@@ -170,8 +171,9 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                     {'label': 'Instant bookable', 'value': 'instant_bookable'}],
                     id='dropdown-menu',
                     searchable=False,
-                    clearable=False,
-                    style={'backgroundColor':"#1f2630"},
+                    clearable=True,
+                    style={'backgroundColor':"#1f2630", 'color': '#2cfec1'},
+                    value='density',
                 ),
                 html.Br(),
                 dash_table.DataTable(
@@ -209,9 +211,8 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                         dcc.Graph(
                             id='cloropleth-map',
                             className='twelve columns',
-                            style={'display': 'inline-block'},
                             figure=get_cloropleth(),
-                            style={'backgroundColor':"#1f2630"}
+                            style={'backgroundColor':"#1f2630"},
                             )
                         ]),                  
                         
