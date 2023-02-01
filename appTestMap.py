@@ -210,7 +210,7 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                             id='cloropleth-map',
                             className='twelve columns',
                             style={'display': 'inline-block'},
-                            figure=get_cloropleth()
+                            figure=get_cloropleth(),
                             style={'backgroundColor':"#1f2630"}
                             )
                         ]),                  
