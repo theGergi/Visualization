@@ -96,7 +96,7 @@ with open('datasets/neighbourhoods.geojson') as f:
 quantitative_columns = ['price','availability 365','Construction year',
             'minimum nights', 'number of reviews']
 categ_col = ['room type', 'instant_bookable']
-categ_default_dict = {"room type": 'Private room', 'instant_bookable':'TRUE'}
+categ_default_dict = {"room type": 'Private room', 'instant_bookable':'True'}
 quant_agg_dict = {col:'mean' for col in quantitative_columns}
 agg_dict = quant_agg_dict.copy()
 agg_dict['id'] = 'count'
@@ -307,17 +307,10 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
     if (value == 'availability 365'):
         df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=True)
     else:
+        print(value)
         df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=False)
     return df_sorted.iloc[:100].to_dict('records')
 
-# @app.callback(
-#     Output('test', 'children'),
-#     Input('cloropleth-map', 'clickData'),
-# )
-# def get_map_click_data(clickData):
-#     print(clickData)
-#     return 'poop'
-# Define interactions Parallel coordinates graph
 @app.callback(
     Output(plot1.html_id, 'figure'),
     [Input('cloropleth-map', 'selectedData'),
@@ -345,11 +338,6 @@ def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataF
     hood_list = [point['location'] for point in selectedData['points']]
     df_map_filter = df.query('neighbourhood in @hood_list')
     return df_map_filter
-#     Output(plot1.html_id, "figure"), [
-#     Input('dropdown-menu', 'value')
-# ])
-# def update_comparison(value):
-#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
 
 def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.DataFrame:
     if not selectedData:
