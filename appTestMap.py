@@ -26,7 +26,6 @@ from time import perf_counter
 
 VALUE_PAIRS_PCP = [("price","Price"),("service fee","Service fee"),("review rate number","Review rate number"),("Construction year","Construction year"),
 ("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
-#('host_response_time','Reponse Time'),('host_response_rate','Response rate'),('host_acceptance_rate','Acceptance rate'),('host_is_superhost','Superhost')]
 
 def clean(x):
     x = x.replace("$", "").replace(" ", "")
@@ -36,7 +35,7 @@ def clean(x):
 
 def cleanAvailability365(x):
     if x < 0:
-        x = 365 + abs(x)
+        x = abs(x)
     else:
         x = min(x, 365)
     return x
@@ -45,10 +44,6 @@ df = pd.read_csv('airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
-#'host_response_time','host_response_rate','host_acceptance_rate','host_is_superhost']) # Added for parallel coordinates
-# df_big = pd.read_csv()
-# 'neighbourhood_group_cleansed','latitude','long',
-# 'room type','price','service fee','review rate number','availability 365'
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -326,19 +321,53 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
 @app.callback(
     Output(plot1.html_id, 'figure'),
     [Input('cloropleth-map', 'selectedData'),
+    Input('dropdown-menu', 'value'),
     Input('histogram', 'selectedData'),
     State('histogram','figure')]
 )
-def update_comparison(mapSelectedData, histSelectedData, histFigDict):#
+def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict):#
     #MAKE SURE THE X AXIS TEXT NAME IS THE SAME AS THE COLUMN NAME OF PANDAS
     # OTHERWISE WE CANT FIND THE NEED VALUES
     # print(hist_column)  
+    if value == 'density':
+        value = 'neighbourhood group'
+    color_col=value
     hist_filter_data = filter_hist_selected(histSelectedData,  histFigDict)
-    fig = plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data))
+    fig = plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data), color_col)
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
     return fig
+
+def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataFrame:
+    if selectedData == None:
+        return df
+    hood_list = [point['location'] for point in selectedData['points']]
+    df_map_filter = df.query('neighbourhood in @hood_list')
+    return df_map_filter
+#     Output(plot1.html_id, "figure"), [
+#     Input('dropdown-menu', 'value')
+# ])
+# def update_comparison(value):
+#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
+
+def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.DataFrame:
+    if not selectedData:
+        return df
+    if not histFigDict:
+        column = 'price'
+    else:
+        column = histFigDict['layout']['xaxis']['title']['text']
+    
+    if column in quantitative_columns:
+        x_min = float(selectedData['range']['x'][0])
+        x_max =  float(selectedData['range']['x'][1])
+        # print(df.query(f'{column} >= @x_min and {column} <= @x_max'))
+        return df.query(f'{column} >= @x_min and {column} <= @x_max')
+    else:
+        groups = [point['x'] for point in selectedData['points']]
+        return df.query(f'`{column}` in @groups')
+
 
 def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataFrame:
     if selectedData == None:
