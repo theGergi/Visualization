@@ -1,6 +1,6 @@
 body {
-    background-color: #f9f9f9;
-    color: #333333;
+    background-color: rgb(31, 38, 48);
+    color: rgb(44,254,193);
     font-family: "Helvetica Neue", Arial, sans-serif;
     font-size: 15px;
     margin: 0px !important;
@@ -46,4 +46,18 @@ h5 {
     margin:  0 7px;
     padding-bottom: 7px;
     border-bottom:  1px solid #ccc;
+}
+
+.Select-control {
+    background-color: rgb(31, 38, 48) !important;
+    color:rgb(44,254,193);
+  }
+  
+.Select-menu-outer {
+    background-color: rgb(31, 38, 48) !important;
+    color: rgb(44,254,193);
+}
+
+.Select-value-label {
+    color: rgb(44,254,193) !important;
 }
