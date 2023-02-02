@@ -209,9 +209,8 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                         dcc.Graph(
                             id='cloropleth-map',
                             className='twelve columns',
-                            style={'display': 'inline-block'},
-                            figure=get_cloropleth()
-                            style={'backgroundColor':"#1f2630"}
+                            style={'display': 'inline-block','backgroundColor':"#1f2630"},
+                            figure=get_cloropleth(),
                             )
                         ]),                  
                         
