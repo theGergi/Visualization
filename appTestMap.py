@@ -26,7 +26,6 @@ from time import perf_counter
 
 VALUE_PAIRS_PCP = [("price","Price"),("service fee","Service fee"),("review rate number","Review rate number"),("Construction year","Construction year"),
 ("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
-#('host_response_time','Reponse Time'),('host_response_rate','Response rate'),('host_acceptance_rate','Acceptance rate'),('host_is_superhost','Superhost')]
 
 def clean(x):
     x = x.replace("$", "").replace(" ", "")
@@ -35,17 +34,16 @@ def clean(x):
     return int(x)
 
 def cleanAvailability365(x):
-    x = min(x, 365)
+    if x < 0:
+        x = abs(x)
+    else:
+        x = min(x, 365)
     return x
 
 df = pd.read_csv('airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_identity_verified','host name',
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
-#'host_response_time','host_response_rate','host_acceptance_rate','host_is_superhost']) # Added for parallel coordinates
-# df_big = pd.read_csv()
-# 'neighbourhood_group_cleansed','latitude','long',
-# 'room type','price','service fee','review rate number','availability 365'
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -54,6 +52,8 @@ px.set_mapbox_access_token("pk.eyJ1IjoibXJhZmlwaCIsImEiOiJjbGMzdWZ0MTIwNmt5M3B0O
 app = Dash(__name__,external_stylesheets=external_stylesheets)
 
 app.config.suppress_callback_exceptions = True
+app.css.config.serve_locally = True
+app.scripts.config.serve_locally = True
 
 styles = {
     'pre' : {
@@ -72,18 +72,15 @@ server = app.server
 df_clean = df.copy()
 df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
+df_clean['availability 365'] = df_clean['availability 365'].apply(cleanAvailability365)
 df_clean['service fee'] = df_clean['service fee'].apply(clean)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
 df_clean = df_clean.set_index('id', drop=False)
+df_clean['Revenue($)'] = df_clean['price']*(365 - df_clean['availability 365'].astype(int))
 
 
 plot1 = Parcoords(df_clean)
 
-# Separate these values into different bins
-df_clean['bin'] = pd.cut(x=df_clean['service fee'], bins=[0, 10, 60, 120, 180, 240])
-df_clean['bin'] = df_clean['bin'].astype(str)
-df_clean['bin_price'] = pd.cut(x=df_clean['price'], bins=5, precision=0)
-df_clean['bin_price'] = df_clean['bin_price'].astype(str)
 # reducing dataset size for faster user experience
 df_small = df_clean[:100]
 radar_cols = ['price','service fee','minimum nights','number of reviews']
@@ -103,6 +100,7 @@ categ_default_dict = {"room type": 'Private room', 'instant_bookable':'TRUE'}
 quant_agg_dict = {col:'mean' for col in quantitative_columns}
 agg_dict = quant_agg_dict.copy()
 agg_dict['id'] = 'count'
+
 def get_categ_counts(categ_col:str, df =df_clean) -> pd.DataFrame:
     result_df =(df.groupby('neighbourhood')[categ_col]
             .value_counts()
@@ -138,7 +136,8 @@ def get_cloropleth(df: pd.DataFrame = pd.DataFrame(), color_col: str = 'price'):
                         featureidkey="properties.neighbourhood",
                            color_continuous_scale="Viridis",
                            mapbox_style="carto-positron",
-                           labels={'price':'price'},
+                           labels={'price':'Price', 'id':'Count', 'proportion_room type_Private room':'Room Type',
+                           'availability 365': 'Availability(days)'},
                            zoom=9, center = {"lat": 40.70271, "lon": -73.8993},
                           )
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
@@ -150,11 +149,11 @@ def get_cloropleth(df: pd.DataFrame = pd.DataFrame(), color_col: str = 'price'):
 app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, children=[
     html.Div(className='row', children=[
         html.Div(className='banner', children =[
-            html.H2('Dash - Airbnb Listings'),
+            html.H2('Dash - Airbnb Listings', style={'marginTop':'0px','marginBottom':'0px','paddingTop':'25px'}),
             html.Hr()
         ]),
         html.Div(className='row', children = [
-            html.Div(className='four coldensityumns div-user-controls', children=[
+            html.Div(className='four columns div-user-controls', children=[
                 html.Div(id='test'),
                 html.P('''Filtering Options'''),
                 html.Hr(),
@@ -171,7 +170,8 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                     id='dropdown-menu',
                     searchable=False,
                     clearable=False,
-                    style={'backgroundColor':"#1f2630"},
+                    style={'backgroundColor':"#1f2630", 'color': '#2cfec1'},
+                    value='density',
                 ),
                 html.Br(),
                 dash_table.DataTable(
@@ -202,15 +202,15 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                 html.Div(
                     className="row",
                     children = [
-                    html.Div(id='my-output'),
+                    #html.Div(id='my-output'),
                     html.Div(
                         className="eight columns",
                         children=[
                         dcc.Graph(
                             id='cloropleth-map',
                             className='twelve columns',
-                            style={'display': 'inline-block','backgroundColor':"#1f2630"},
                             figure=get_cloropleth(),
+                            style={'backgroundColor':"#1f2630"},
                             )
                         ]),                  
                         
@@ -266,7 +266,11 @@ def update_graph(value, selectedData, selectedTableRows):
         else: 
             value = f'proportion_{value}_{categ_default_dict[value]}'
 
-    fig = get_cloropleth(pd.DataFrame(), color_col=value)
+    if selectedTableRows != None:
+        df_traces = df_clean.loc[df_clean["id"].isin(selectedTableRows)]
+        fig = go.Figure(get_cloropleth(df_traces, color_col=value))
+    else:
+        fig = go.Figure(get_cloropleth(pd.DataFrame(), color_col=value))
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
@@ -300,7 +304,10 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
     if value == 'density':
         value = 'NAME'
     hist_filter_data = filter_hist_selected(histSelectedData, histFigDict)
-    df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=False)
+    if (value == 'availability 365'):
+        df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=True)
+    else:
+        df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=False)
     return df_sorted.iloc[:100].to_dict('records')
 
 # @app.callback(
@@ -314,15 +321,19 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
 @app.callback(
     Output(plot1.html_id, 'figure'),
     [Input('cloropleth-map', 'selectedData'),
+    Input('dropdown-menu', 'value'),
     Input('histogram', 'selectedData'),
     State('histogram','figure')]
 )
-def update_comparison(mapSelectedData, histSelectedData, histFigDict):#
+def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict):#
     #MAKE SURE THE X AXIS TEXT NAME IS THE SAME AS THE COLUMN NAME OF PANDAS
     # OTHERWISE WE CANT FIND THE NEED VALUES
     # print(hist_column)  
+    if value == 'density':
+        value = 'neighbourhood group'
+    color_col=value
     hist_filter_data = filter_hist_selected(histSelectedData,  histFigDict)
-    fig = plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data))
+    fig = plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data), color_col)
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
@@ -348,8 +359,6 @@ def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.Da
     else:
         column = histFigDict['layout']['xaxis']['title']['text']
     
-    print(column)
-    print(selectedData['points'])
     if column in quantitative_columns:
         x_min = float(selectedData['range']['x'][0])
         x_max =  float(selectedData['range']['x'][1])
@@ -357,15 +366,46 @@ def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.Da
         return df.query(f'{column} >= @x_min and {column} <= @x_max')
     else:
         groups = [point['x'] for point in selectedData['points']]
-        print(groups)
         return df.query(f'`{column}` in @groups')
+
+
+def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataFrame:
+    if selectedData == None:
+        return df
+    hood_list = [point['location'] for point in selectedData['points']]
+    df_map_filter = df.query('neighbourhood in @hood_list')
+    return df_map_filter
+#     Output(plot1.html_id, "figure"), [
+#     Input('dropdown-menu', 'value')
+# ])
+# def update_comparison(value):
+#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
+
+def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.DataFrame:
+    if not selectedData:
+        return df
+    if not histFigDict:
+        column = 'price'
+    else:
+        column = histFigDict['layout']['xaxis']['title']['text']
+    
+    if column in quantitative_columns:
+        x_min = float(selectedData['range']['x'][0])
+        x_max =  float(selectedData['range']['x'][1])
+        # print(df.query(f'{column} >= @x_min and {column} <= @x_max'))
+        return df.query(f'{column} >= @x_min and {column} <= @x_max')
+    else:
+        groups = [point['x'] for point in selectedData['points']]
+        return df.query(f'`{column}` in @groups')
+
+# Updates the histogram based on the selected option from the dropdown.
 @app.callback(
     Output('histogram', 'figure'),
     [Input('dropdown-menu', 'value'),
     Input('cloropleth-map', 'selectedData')]
 )
 def update_grouped(value, selectedData):
-
+    # When noting is selected, it shows an empty graph
     if value is None:
           return dict(
               data=[dict(x=0, y=0)],
@@ -376,11 +416,16 @@ def update_grouped(value, selectedData):
                   font=dict(color="#2cfec1"),
               ),
           )
+    
+    # Change the color of the bars and sets the margin and the gap between the bars.
     if value == 'density':
-        print('yes')
         value = 'neighbourhood group'
-    print(value)
-    fig_second = px.histogram(filter_map_selection(selectedData), x=value, nbins=20)
+    if value == 'number of reviews' or value == 'minimum nights':
+        fig_second = px.histogram(filter_map_selection(selectedData), x=value, 
+                    nbins=11,  color_discrete_sequence=["#2cfec1"])
+    else:
+        fig_second = px.histogram(filter_map_selection(selectedData), x=value, 
+                    nbins=10,  color_discrete_sequence=["#2cfec1"])
     fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
     fig_second.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
