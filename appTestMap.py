@@ -35,7 +35,10 @@ def clean(x):
     return int(x)
 
 def cleanAvailability365(x):
-    x = min(x, 365)
+    if x < 0:
+        x = 365 + abs(x)
+    else:
+        x = min(x, 365)
     return x
 
 df = pd.read_csv('airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_identity_verified','host name',
@@ -74,18 +77,15 @@ server = app.server
 df_clean = df.copy()
 df_clean = df_clean.dropna().reset_index(drop=True)
 df_clean['price'] = df_clean['price'].apply(clean)
+df_clean['availability 365'] = df_clean['availability 365'].apply(cleanAvailability365)
 df_clean['service fee'] = df_clean['service fee'].apply(clean)
 df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
 df_clean = df_clean.set_index('id', drop=False)
+df_clean['Revenue($)'] = df_clean['price']*(365 - df_clean['availability 365'].astype(int))
 
 
 plot1 = Parcoords(df_clean)
 
-# Separate these values into different bins
-df_clean['bin'] = pd.cut(x=df_clean['service fee'], bins=[0, 10, 60, 120, 180, 240])
-df_clean['bin'] = df_clean['bin'].astype(str)
-df_clean['bin_price'] = pd.cut(x=df_clean['price'], bins=5, precision=0)
-df_clean['bin_price'] = df_clean['bin_price'].astype(str)
 # reducing dataset size for faster user experience
 df_small = df_clean[:100]
 radar_cols = ['price','service fee','minimum nights','number of reviews']
@@ -141,7 +141,8 @@ def get_cloropleth(df: pd.DataFrame = pd.DataFrame(), color_col: str = 'price'):
                         featureidkey="properties.neighbourhood",
                            color_continuous_scale="Viridis",
                            mapbox_style="carto-positron",
-                           labels={'price':'price'},
+                           labels={'price':'Price', 'id':'Count', 'proportion_room type_Private room':'Room Type',
+                           'availability 365': 'Availability(days)'},
                            zoom=9, center = {"lat": 40.70271, "lon": -73.8993},
                           )
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
@@ -173,7 +174,7 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                     {'label': 'Instant bookable', 'value': 'instant_bookable'}],
                     id='dropdown-menu',
                     searchable=False,
-                    clearable=True,
+                    clearable=False,
                     style={'backgroundColor':"#1f2630", 'color': '#2cfec1'},
                     value='density',
                 ),
@@ -270,7 +271,11 @@ def update_graph(value, selectedData, selectedTableRows):
         else: 
             value = f'proportion_{value}_{categ_default_dict[value]}'
 
-    fig = get_cloropleth(pd.DataFrame(), color_col=value)
+    if selectedTableRows != None:
+        df_traces = df_clean.loc[df_clean["id"].isin(selectedTableRows)]
+        fig = go.Figure(get_cloropleth(df_traces, color_col=value))
+    else:
+        fig = go.Figure(get_cloropleth(pd.DataFrame(), color_col=value))
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
@@ -304,7 +309,10 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
     if value == 'density':
         value = 'NAME'
     hist_filter_data = filter_hist_selected(histSelectedData, histFigDict)
-    df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=False)
+    if (value == 'availability 365'):
+        df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=True)
+    else:
+        df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=False)
     return df_sorted.iloc[:100].to_dict('records')
 
 # @app.callback(
@@ -352,8 +360,6 @@ def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.Da
     else:
         column = histFigDict['layout']['xaxis']['title']['text']
     
-    print(column)
-    print(selectedData['points'])
     if column in quantitative_columns:
         x_min = float(selectedData['range']['x'][0])
         x_max =  float(selectedData['range']['x'][1])
@@ -361,7 +367,6 @@ def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.Da
         return df.query(f'{column} >= @x_min and {column} <= @x_max')
     else:
         groups = [point['x'] for point in selectedData['points']]
-        print(groups)
         return df.query(f'`{column}` in @groups')
 @app.callback(
     Output('histogram', 'figure'),
@@ -381,10 +386,13 @@ def update_grouped(value, selectedData):
               ),
           )
     if value == 'density':
-        print('yes')
         value = 'neighbourhood group'
-    print(value)
-    fig_second = px.histogram(filter_map_selection(selectedData), x=value, nbins=20)
+    if value == 'number of reviews':
+        fig_second = px.histogram(filter_map_selection(selectedData), x=value, 
+                    nbins=11,  color_discrete_sequence=["#2cfec1"])
+    else:
+        fig_second = px.histogram(filter_map_selection(selectedData), x=value, 
+                    nbins=10,  color_discrete_sequence=["#2cfec1"])
     fig_second.update_layout(margin = dict(l=0,r=20,b=20),bargap=0.2)
     fig_second.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
