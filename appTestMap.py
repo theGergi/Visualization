@@ -368,13 +368,15 @@ def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.Da
     else:
         groups = [point['x'] for point in selectedData['points']]
         return df.query(f'`{column}` in @groups')
+
+# Updates the histogram based on the selected option from the dropdown.
 @app.callback(
     Output('histogram', 'figure'),
     [Input('dropdown-menu', 'value'),
     Input('cloropleth-map', 'selectedData')]
 )
 def update_grouped(value, selectedData):
-
+    # When noting is selected, it shows an empty graph
     if value is None:
           return dict(
               data=[dict(x=0, y=0)],
@@ -385,9 +387,11 @@ def update_grouped(value, selectedData):
                   font=dict(color="#2cfec1"),
               ),
           )
+    
+    # Change the color of the bars and sets the margin and the gap between the bars.
     if value == 'density':
         value = 'neighbourhood group'
-    if value == 'number of reviews':
+    if value == 'number of reviews' or value == 'minimum nights':
         fig_second = px.histogram(filter_map_selection(selectedData), x=value, 
                     nbins=11,  color_discrete_sequence=["#2cfec1"])
     else:
