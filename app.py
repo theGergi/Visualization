@@ -6,8 +6,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from dash.exceptions import PreventUpdate
-from radar_chart import PLgetRadarChart, normalizeColumns
-from jbi100_app.views.parcoords import Parcoords
+from views.radar_chart import PLgetRadarChart, normalizeColumns
+from views.parcoords import Parcoords
 import numpy as np
 import re
 from time import perf_counter
@@ -40,7 +40,7 @@ def cleanAvailability365(x):
         x = min(x, 365)
     return x
 
-df = pd.read_csv('airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_identity_verified','host name',
+df = pd.read_csv('datasets/airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_identity_verified','host name',
 'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
 'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
 'reviews per month','review rate number','calculated host listings count','availability 365'])
@@ -249,7 +249,7 @@ def select_listings(selected_rows):
                 font=dict(color="#2cfec1"))
     return fig
 
-# Updates the hexbin map
+# Updates the cloropleth map
 @app.callback(
     Output('cloropleth-map', 'figure'),
     [Input('dropdown-menu', 'value'),
@@ -274,21 +274,6 @@ def update_graph(value, selectedData, selectedTableRows):
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
-
-    # if selectedTableRows:
-    #     lats = list(df_clean.loc[selectedTableRows]['lat'])
-    #     lons = list(df_clean.loc[selectedTableRows]['long'])
-    #     texts = list(df_clean.loc[selectedTableRows]['NAME'])
-    #     print(texts)
-
-    #     fig.add_scattermapbox(
-    #         lat = lats,
-    #         lon = lons,
-    #         mode = 'markers+text',
-    #         text = texts,
-    #         marker_size=20,
-    #         marker_color='rgb(235, 0, 100)'
-    #     )
     return fig
 
 df_sorted = df_clean
@@ -310,14 +295,6 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
         df_sorted = filter_map_selection(mapSelectedData, hist_filter_data).sort_values(by=[value], ascending=False)
     return df_sorted.iloc[:100].to_dict('records')
 
-# @app.callback(
-#     Output('test', 'children'),
-#     Input('cloropleth-map', 'clickData'),
-# )
-# def get_map_click_data(clickData):
-#     print(clickData)
-#     return 'poop'
-# Define interactions Parallel coordinates graph
 @app.callback(
     Output(plot1.html_id, 'figure'),
     [Input('cloropleth-map', 'selectedData'),
@@ -345,11 +322,7 @@ def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataF
     hood_list = [point['location'] for point in selectedData['points']]
     df_map_filter = df.query('neighbourhood in @hood_list')
     return df_map_filter
-#     Output(plot1.html_id, "figure"), [
-#     Input('dropdown-menu', 'value')
-# ])
-# def update_comparison(value):
-#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
+
 
 def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.DataFrame:
     if not selectedData:
@@ -368,35 +341,6 @@ def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.Da
         groups = [point['x'] for point in selectedData['points']]
         return df.query(f'`{column}` in @groups')
 
-
-def filter_map_selection(selectedData:dict[list[dict]], df=df_clean) -> pd.DataFrame:
-    if selectedData == None:
-        return df
-    hood_list = [point['location'] for point in selectedData['points']]
-    df_map_filter = df.query('neighbourhood in @hood_list')
-    return df_map_filter
-#     Output(plot1.html_id, "figure"), [
-#     Input('dropdown-menu', 'value')
-# ])
-# def update_comparison(value):
-#     return plot1.update([("price","Price"),("review rate number","Review rate number")])
-
-def filter_hist_selected(selectedData:dict, histFigDict:str, df=df_clean)->pd.DataFrame:
-    if not selectedData:
-        return df
-    if not histFigDict:
-        column = 'price'
-    else:
-        column = histFigDict['layout']['xaxis']['title']['text']
-    
-    if column in quantitative_columns:
-        x_min = float(selectedData['range']['x'][0])
-        x_max =  float(selectedData['range']['x'][1])
-        # print(df.query(f'{column} >= @x_min and {column} <= @x_max'))
-        return df.query(f'{column} >= @x_min and {column} <= @x_max')
-    else:
-        groups = [point['x'] for point in selectedData['points']]
-        return df.query(f'`{column}` in @groups')
 
 # Updates the histogram based on the selected option from the dropdown.
 @app.callback(
