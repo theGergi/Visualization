@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from plotly.express.colors import sample_colorscale
-
+from config import COLOR_SCALE
 class Parcoords(html.Div):
     def __init__(self, df):
         self.html_id = 'parcoord'
@@ -40,7 +40,7 @@ class Parcoords(html.Div):
             
             
             color_distribution = np.linspace(0,1,dfg.shape[0]+1)
-            colorvals = sample_colorscale('viridis', color_distribution)
+            colorvals = sample_colorscale(COLOR_SCALE, color_distribution)
             colorscale = []
 
             for i in range(dfg.shape[0]):
@@ -63,7 +63,7 @@ class Parcoords(html.Div):
         else:
             cmin = self.df_display[color_col].min()
             cmax = self.df_display[color_col].max()
-            colorscale='viridis'
+            colorscale=COLOR_SCALE
             # cat_dim = dict(range=[0,self.df_display['dummy_'+color_col].max()],
             #         tickvals = dfg['dummy_'+color_col], ticktext = dfg[color_col],
             #         label=name, values=self.df_display['dummy_'+color_col])

@@ -6,8 +6,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from dash.exceptions import PreventUpdate
-from views.radar_chart import PLgetRadarChart, normalizeColumns
+from views.radar_chart import PLgetRadarChart
 from views.parcoords import Parcoords
+from database_methods import cleanDatabase, normalizeDatabase
+from config import VALUE_PAIRS_PCP, COLOR_SCALE
 import numpy as np
 import re
 from time import perf_counter
@@ -24,26 +26,7 @@ from time import perf_counter
 
 #SELECTING HIST CHANGES TABLE AND PCP DATA AND AND MAP COLOR IF HIST CATEGORICAL
 
-VALUE_PAIRS_PCP = [("price","Price"),("service fee","Service fee"),("review rate number","Review rate number"),("Construction year","Construction year"),
-("number of reviews","Number of reviews"), ('availability 365','Availability in a year')]
 
-def clean(x):
-    x = x.replace("$", "").replace(" ", "")
-    if "," in x:
-        x = x.replace(",", "")
-    return int(x)
-
-def cleanAvailability365(x):
-    if x < 0:
-        x = abs(x)
-    else:
-        x = min(x, 365)
-    return x
-
-df = pd.read_csv('datasets/airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_identity_verified','host name',
-'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
-'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
-'reviews per month','review rate number','calculated host listings count','availability 365'])
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -54,40 +37,22 @@ app = Dash(__name__,external_stylesheets=external_stylesheets)
 app.config.suppress_callback_exceptions = True
 app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
-
-styles = {
-    'pre' : {
-        'border': 'thin lightgrey solid',
-        'overflowX': 'scroll'
-    }
-}
-
-
 app.title = "Dash Map"
 
 server = app.server
 
-# The first thing we have to do is clean the dataframe
+df = pd.read_csv('datasets/airbnb_open_data.csv', usecols=['id', 'NAME','host id', 'host_identity_verified','host name',
+    'neighbourhood group','neighbourhood','lat','long',	'country','country code','instant_bookable','cancellation_policy',
+    'room type','Construction year','price','service fee','minimum nights','number of reviews',	'last review',	
+    'reviews per month','review rate number','calculated host listings count','availability 365'])
 
-df_clean = df.copy()
-df_clean = df_clean.dropna().reset_index(drop=True)
-df_clean['price'] = df_clean['price'].apply(clean)
-df_clean['availability 365'] = df_clean['availability 365'].apply(cleanAvailability365)
-df_clean['service fee'] = df_clean['service fee'].apply(clean)
-df_clean['neighbourhood group'] = df_clean['neighbourhood group'].replace('brookln', 'Brooklyn')
-df_clean = df_clean.set_index('id', drop=False)
-df_clean['Revenue($)'] = df_clean['price']*(365 - df_clean['availability 365'].astype(int))
-
-
-plot1 = Parcoords(df_clean)
+df_clean = cleanDatabase(df)
 
 # reducing dataset size for faster user experience
 df_small = df_clean[:100]
-radar_cols = ['price','service fee','minimum nights','number of reviews']
-df_normalized = normalizeColumns(df_clean[radar_cols])
-df_normalized['NAME'] = df_clean['NAME']
-df_normalized['id'] = df_clean['id']
-df_normalized = df_normalized.set_index('id', drop=False)
+df_normalized = normalizeDatabase(df_clean)
+
+paarcoordsPlot = Parcoords(df_clean)
 radar_fig = PLgetRadarChart(pd.DataFrame(), names='NAME')
 
 with open('datasets/neighbourhoods.geojson') as f:
@@ -134,7 +99,7 @@ def get_cloropleth(df: pd.DataFrame = pd.DataFrame(), color_col: str = 'price'):
     fig = px.choropleth_mapbox(df_grouped, geojson=hood_geometry, 
                         locations='neighbourhood', color=color_col,
                         featureidkey="properties.neighbourhood",
-                           color_continuous_scale="Viridis",
+                           color_continuous_scale=COLOR_SCALE,
                            mapbox_style="carto-positron",
                            labels={'price':'Price', 'id':'Count', 'proportion_room type_Private room':'Room Type',
                            'availability 365': 'Availability(days)'},
@@ -158,7 +123,6 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                 html.P('''Filtering Options'''),
                 html.Hr(),
                 dcc.Dropdown(
-                    # [{'label': 'Density', 'value': 'density'},
                     [{'label': 'Listing Density', 'value': 'density'},
                     {'label': 'Average Price', 'value': 'price'},
                     {'label': 'Average Availability', 'value': 'availability 365'},
@@ -226,7 +190,7 @@ app.layout = html.Div(style={'backgroundColor':"#1f2630", 'color': '#2cfec1'}, c
                 html.Div(
                     className="row",
                     children=[
-                    plot1
+                    paarcoordsPlot
                 ]),
                 
             ])
@@ -296,7 +260,7 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
     return df_sorted.iloc[:100].to_dict('records')
 
 @app.callback(
-    Output(plot1.html_id, 'figure'),
+    Output(paarcoordsPlot.html_id, 'figure'),
     [Input('cloropleth-map', 'selectedData'),
     Input('dropdown-menu', 'value'),
     Input('histogram', 'selectedData'),
@@ -310,7 +274,7 @@ def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict):#
         value = 'neighbourhood group'
     color_col=value
     hist_filter_data = filter_hist_selected(histSelectedData,  histFigDict)
-    fig = plot1.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data), color_col)
+    fig = paarcoordsPlot.update(VALUE_PAIRS_PCP, filter_map_selection(mapSelectedData, hist_filter_data), color_col)
     fig.update_layout(paper_bgcolor="#1f2630",
                 plot_bgcolor="#1f2630",
                 font=dict(color="#2cfec1"))
