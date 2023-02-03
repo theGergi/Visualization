@@ -1,4 +1,4 @@
-# JBI100-example-app
+# JBI100-AirBnb Listing-app
 
 ## About this app
 
