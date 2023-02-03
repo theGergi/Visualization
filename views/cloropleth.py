@@ -11,7 +11,7 @@ with open('datasets/neighbourhoods.geojson') as f:
     hood_geometry = json.load(f)
 # should be global
 quantitative_columns = ['price', 'availability 365', 'Construction year',
-                        'minimum nights', 'number of reviews']
+                        'minimum nights', 'number of reviews', 'Revenue($)', 'review rate number']
 default_categ_col = ['room type', 'instant_bookable']
 categ_default_dict = {"room type": 'Private room', 'instant_bookable': 'True'}
 agg_dict = {col: 'mean' for col in quantitative_columns}

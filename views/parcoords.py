@@ -64,10 +64,6 @@ class Parcoords(html.Div):
             cmin = self.df_display[color_col].min()
             cmax = self.df_display[color_col].max()
             colorscale=COLOR_SCALE
-            # cat_dim = dict(range=[0,self.df_display['dummy_'+color_col].max()],
-            #         tickvals = dfg['dummy_'+color_col], ticktext = dfg[color_col],
-            #         label=name, values=self.df_display['dummy_'+color_col])
-            # dimensions.append(cat_dim)
 
         colorbar = {}
         if dfg is not None:
