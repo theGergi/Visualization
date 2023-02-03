@@ -12,7 +12,6 @@ class Parcoords(html.Div):
         super().__init__(
             className="graph_card",
             children=[
-                #html.H6(name),
                 dcc.Graph(id=self.html_id)
             ],
         )
