@@ -123,10 +123,12 @@ app.layout = html.Div(style={'backgroundColor': "#1f2630", 'color': '#2cfec1'}, 
     Input('preview_table', 'selected_row_ids'),
     Input('preview_table', 'selected_columns'),
 )
-def select_listings(selected_rows):
+def select_listings(selected_rows, selected_cols):
     if not selected_rows:
         return PLgetRadarChart(pd.DataFrame(), names='NAME')
     display_df = df_normalized.loc[selected_rows]
+    if selected_cols is not None and len(selected_cols) > 2:
+        display_df = normalizeDatabase(df_clean, selected_cols).loc[selected_rows]
     fig = PLgetRadarChart(display_df, names='NAME')
     fig.update_layout(paper_bgcolor="#1f2630",
                       plot_bgcolor="#1f2630",
@@ -189,10 +191,9 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
     [Input('cloropleth-map', 'selectedData'),
      Input('dropdown-menu', 'value'),
      Input('histogram', 'selectedData'),
-     State('histogram', 'figure'),
-     Input('preview_table', 'selected_columns')]
+     State('histogram', 'figure')]
 )
-def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict, selected_columns):
+def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict):
     # MAKE SURE THE X AXIS TEXT NAME IS THE SAME AS THE COLUMN NAME OF PANDAS
     # OTHERWISE WE CANT FIND THE NEED VALUES
     # print(hist_column)
@@ -201,8 +202,6 @@ def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict, sele
     color_col = value
     hist_filter_data = filter_hist_selected(histSelectedData,  histFigDict)
     diplayed_columns = PCP_ITEMS
-    if selected_columns is not None and len(selected_columns) > 1:
-        diplayed_columns = [pair for pair in PCP_ITEMS if pair[0] in selected_columns]
     fig = parcoordsPlot.update(diplayed_columns, filter_map_selection(
         mapSelectedData, hist_filter_data), color_col)
     fig.update_layout(paper_bgcolor="#1f2630",
