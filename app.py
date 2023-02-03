@@ -4,8 +4,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from views.radar_chart import PLgetRadarChart
 from views.parcoords import Parcoords
-from config import PCP_ITEMS, DROPDOWN_MENU_ITEMS
-from databases import df_clean, df_small, df_normalized
+from config import PCP_ITEMS, DROPDOWN_MENU_ITEMS, TABLE_ROWS
+from databases import df_clean, df_small, df_normalized, normalizeDatabase
 from views.cloropleth import get_cloropleth, quantitative_columns, categ_default_dict
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -55,8 +55,9 @@ app.layout = html.Div(style={'backgroundColor': "#1f2630", 'color': '#2cfec1'}, 
                 html.Br(),
                 dash_table.DataTable(
                     df_small.to_dict('records'),
-                    [{"name": i, "id": i} for i in df_small.columns],
+                    [{"name": i, "id": i, 'selectable': (i in quantitative_columns)} for i in TABLE_ROWS],
                     row_selectable='multi',
+                    column_selectable='multi',
                     id='preview_table',
                     style_table={'height': '300px',
                                  'overflowY': 'auto', 'color': '#2cfec1', },
@@ -120,6 +121,7 @@ app.layout = html.Div(style={'backgroundColor': "#1f2630", 'color': '#2cfec1'}, 
 @app.callback(
     Output('radar_fig', "figure"),
     Input('preview_table', 'selected_row_ids'),
+    Input('preview_table', 'selected_columns'),
 )
 def select_listings(selected_rows):
     if not selected_rows:
@@ -187,9 +189,10 @@ def sort_table_data(value, mapSelectedData, histSelectedData, histFigDict):
     [Input('cloropleth-map', 'selectedData'),
      Input('dropdown-menu', 'value'),
      Input('histogram', 'selectedData'),
-     State('histogram', 'figure')]
+     State('histogram', 'figure'),
+     Input('preview_table', 'selected_columns')]
 )
-def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict):
+def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict, selected_columns):
     # MAKE SURE THE X AXIS TEXT NAME IS THE SAME AS THE COLUMN NAME OF PANDAS
     # OTHERWISE WE CANT FIND THE NEED VALUES
     # print(hist_column)
@@ -197,7 +200,10 @@ def update_parcoords(mapSelectedData, value, histSelectedData, histFigDict):
         value = 'neighbourhood group'
     color_col = value
     hist_filter_data = filter_hist_selected(histSelectedData,  histFigDict)
-    fig = parcoordsPlot.update(PCP_ITEMS, filter_map_selection(
+    diplayed_columns = PCP_ITEMS
+    if selected_columns is not None and len(selected_columns) > 1:
+        diplayed_columns = [pair for pair in PCP_ITEMS if pair[0] in selected_columns]
+    fig = parcoordsPlot.update(diplayed_columns, filter_map_selection(
         mapSelectedData, hist_filter_data), color_col)
     fig.update_layout(paper_bgcolor="#1f2630",
                       plot_bgcolor="#1f2630",

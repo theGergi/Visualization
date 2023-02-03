@@ -34,9 +34,9 @@ def normalizeColumns(df: pd.DataFrame) -> pd.DataFrame:
         result_df[col] = (result_df[col]*100) / len(df)
     return result_df
 
-def normalizeDatabase(df):
-    radar_cols = ['price','service fee','minimum nights','number of reviews']
-    df_normalized = normalizeColumns(df[radar_cols])
+default_radar_cols = ['price','service fee','minimum nights','number of reviews']
+def normalizeDatabase(df, cols = default_radar_cols):
+    df_normalized = normalizeColumns(df[cols])
     df_normalized['NAME'] = df['NAME']
     df_normalized['id'] = df['id']
     df_normalized = df_normalized.set_index('id', drop=False)
