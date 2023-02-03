@@ -17,6 +17,11 @@ This is the dash app to assist airbnb hosts to evaluate and improve their listin
 4. Open this folder in any IDE with a python compiler
 5. Run app.py to run the app
 
+## Implemented Ourselves
+
+* All the idioms the idioms (with the help of plotly builtin-idioms)
+* All data manipulations (with the help of pandas)
+
 ## Resources
 
 * [Dash](https://dash.plot.ly/)
